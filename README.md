@@ -1,7 +1,9 @@
 # LoL-Companion
 Ultimate tool for your League of Legends Client
-
-![](screenshot.png)
+![](screenshot1.png)
+![](screenshot2.png)
+![](screenshot3.png)
+![](screenshot4.png)
 ## Features
 Duplicate client, Import and Export Item sets, Auto Login, Auto Ready-Check, Automatic Report, Position Call out, Champion Instant Lock & Ban, Chat Macro, Spell Tracker, Profile Background Changer, and so on.
 ## Dependencies
