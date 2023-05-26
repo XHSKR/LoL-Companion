@@ -15,8 +15,6 @@ using System.IO;
 using Newtonsoft.Json.Linq;
 using System.Text;
 using System.Management;
-using System.Security.Policy;
-using System.Net.Configuration;
 using IWshRuntimeLibrary;
 
 namespace LoL_Companion
@@ -1084,14 +1082,13 @@ namespace LoL_Companion
                 }
             }
         }
-
-        private void materialRaisedButton30_Click(object sender, EventArgs e)
+        void autoLogin(string region)
         {
             terminateLoL();
 
             try
             {
-                Process.Start(leagueLocation + @"LeagueClient.exe", "--locale=\"ko_KR\"");
+                Process.Start(leagueLocation + @"LeagueClient.exe", $"--locale=\"{region}\"");
             }
             catch { }
 
@@ -1123,44 +1120,14 @@ namespace LoL_Companion
                 catch { }
             }
         }
+        private void materialRaisedButton30_Click(object sender, EventArgs e)
+        {
+            autoLogin("ko_KR");
+        }
 
         private void materialRaisedButton38_Click(object sender, EventArgs e)
         {
-            terminateLoL();
-
-            try
-            {
-                Process.Start(leagueLocation + @"LeagueClient.exe", "--locale=\"en_AU\"");
-            }
-            catch { }
-
-            string CommandLine = string.Empty;
-
-            while (CommandLine == string.Empty)
-            {
-                try
-                {
-                    var process = Process.GetProcessesByName("RiotClientUx").FirstOrDefault();
-                    using (var searcher = new ManagementObjectSearcher(
-                           $"SELECT CommandLine FROM Win32_Process WHERE ProcessId = {process.Id}"))
-                    using (var objects = searcher.Get())
-                    {
-                        CommandLine = objects.Cast<ManagementBaseObject>().SingleOrDefault()?["CommandLine"]?.ToString();
-                    }
-
-                    string Pass = Regex.Match(CommandLine, "(--remoting-auth-token=)([^ ]*)( )").Groups[2].Value;
-                    string Port = Regex.Match(CommandLine, "(--app-port=)([^ ]*)( )").Groups[2].Value;
-
-                    json = ("{" + $"\"username\":\"{comboBox2.Text}\", \"password\":\"{leaguePass}\", \"persistLogin\":false" + "}");
-
-                    byte[] bytes = Encoding.UTF8.GetBytes(json); //convert from json to byte;
-                    using (var client = new WebClient { Credentials = new NetworkCredential("riot", Pass) })
-                    {
-                        client.UploadData("https://127.0.0.1:" + Port + "/rso-auth/v1/session/credentials", "PUT", bytes);
-                    }
-                }
-                catch { }
-            }
+            autoLogin("en_AU");
         }
 
         public bool isChatAvailable = false;
@@ -1254,8 +1221,6 @@ namespace LoL_Companion
         {
             Process.Start(@"Logs");
         }
-
-
 
         //Position Call Out
         private void materialCheckBox12_CheckedChanged(object sender, EventArgs e)
@@ -1524,52 +1489,78 @@ namespace LoL_Companion
             }
         }
 
-        private void materialRaisedButton34_Click(object sender, EventArgs e)
+        private void SetLobbyPreset(string position, string champion, string ban)
         {
-            //Position
-            materialRadioButton6.Checked = true;
+            // Position
+            if (position == "Top")
+                materialRadioButton5.Checked = true;
+            else if (position == "Jungle")
+                materialRadioButton6.Checked = true;
+            else if (position == "Mid")
+                materialRadioButton7.Checked = true;
+            else if (position == "ADC")
+                materialRadioButton8.Checked = true;
+            else if (position == "Support")
+                materialRadioButton9.Checked = true;
+
             materialCheckBox12.Checked = true;
-            //Champion
-            comboBox3.Text = "Master Yi";
+
+            // Champion
+            comboBox3.Text = champion;
             materialCheckBox16.Checked = true;
             materialCheckBox14.Checked = false;
             materialCheckBox14.Checked = true;
-            //Ban
-            comboBox6.Text = "Zac";
+
+            // Ban
+            comboBox6.Text = ban;
             materialCheckBox20.Checked = false;
             materialCheckBox20.Checked = true;
+        }
+        private void materialRaisedButton34_Click(object sender, EventArgs e)
+        {
+            SetLobbyPreset("Jungle", "Master Yi", "Zac");
         }
 
         private void materialRaisedButton36_Click(object sender, EventArgs e)
         {
-            //Position
-            materialRadioButton9.Checked = true;
-            materialCheckBox12.Checked = true;
-            //Champion
-            comboBox3.Text = "Zilean";
-            materialCheckBox16.Checked = true;
-            materialCheckBox14.Checked = false;
-            materialCheckBox14.Checked = true;
-            //Ban
-            comboBox6.Text = "Thresh";
-            materialCheckBox20.Checked = false;
-            materialCheckBox20.Checked = true;
+            SetLobbyPreset("Support", "Zilean", "Thresh");
         }
 
         private void materialRaisedButton40_Click(object sender, EventArgs e)
         {
-            //Position
-            materialRadioButton9.Checked = true;
-            materialCheckBox12.Checked = true;
-            //Champion
-            comboBox3.Text = "Lulu";
-            materialCheckBox16.Checked = true;
-            materialCheckBox14.Checked = false;
-            materialCheckBox14.Checked = true;
-            //Ban
-            comboBox6.Text = "Blitzcrank";
-            materialCheckBox20.Checked = false;
-            materialCheckBox20.Checked = true;
+            SetLobbyPreset("Support", "Lulu", "Blitzcrank");
+        }
+
+        private void materialRadioButton5_CheckedChanged(object sender, EventArgs e)
+        {
+            RadioButton radioButton = (RadioButton)sender;
+
+            string firstPreference = "";
+
+            switch (radioButton.Name)
+            {
+                case "materialRadioButton5":
+                    firstPreference = "TOP";
+                    break;
+                case "materialRadioButton6":
+                    firstPreference = "JUNGLE";
+                    break;
+                case "materialRadioButton7":
+                    firstPreference = "MIDDLE";
+                    break;
+                case "materialRadioButton8":
+                    firstPreference = "BOTTOM";
+                    break;
+                case "materialRadioButton9":
+                    firstPreference = "UTILITY";
+                    break;
+            }
+
+            if (radioButton.Checked)
+            {
+                json = "{ \"firstPreference\":\"" + firstPreference + "\", \"secondPreference\":\"FILL\" }";
+                LCU_Request.PUT("/lol-lobby/v2/lobby/members/localMember/position-preferences");
+            }
         }
     }
 }

@@ -888,6 +888,7 @@
             this.materialRadioButton5.TabStop = true;
             this.materialRadioButton5.Text = "Top";
             this.materialRadioButton5.UseVisualStyleBackColor = true;
+            this.materialRadioButton5.CheckedChanged += new System.EventHandler(this.materialRadioButton5_CheckedChanged);
             // 
             // materialRadioButton6
             // 
@@ -904,6 +905,7 @@
             this.materialRadioButton6.TabIndex = 98;
             this.materialRadioButton6.Text = "Jungle";
             this.materialRadioButton6.UseVisualStyleBackColor = true;
+            this.materialRadioButton6.CheckedChanged += new System.EventHandler(this.materialRadioButton5_CheckedChanged);
             // 
             // materialRadioButton7
             // 
@@ -920,6 +922,7 @@
             this.materialRadioButton7.TabIndex = 99;
             this.materialRadioButton7.Text = "Mid";
             this.materialRadioButton7.UseVisualStyleBackColor = true;
+            this.materialRadioButton7.CheckedChanged += new System.EventHandler(this.materialRadioButton5_CheckedChanged);
             // 
             // materialRadioButton8
             // 
@@ -936,6 +939,7 @@
             this.materialRadioButton8.TabIndex = 100;
             this.materialRadioButton8.Text = "ADC";
             this.materialRadioButton8.UseVisualStyleBackColor = true;
+            this.materialRadioButton8.CheckedChanged += new System.EventHandler(this.materialRadioButton5_CheckedChanged);
             // 
             // materialRadioButton9
             // 
@@ -952,6 +956,7 @@
             this.materialRadioButton9.TabIndex = 101;
             this.materialRadioButton9.Text = "Support";
             this.materialRadioButton9.UseVisualStyleBackColor = true;
+            this.materialRadioButton9.CheckedChanged += new System.EventHandler(this.materialRadioButton5_CheckedChanged);
             // 
             // comboBox3
             // 
