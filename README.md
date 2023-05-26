@@ -1,5 +1,6 @@
 # LoL-Companion
 Ultimate tool for your League of Legends Client
+
 ![](screenshot1.png)
 ![](screenshot2.png)
 ![](screenshot3.png)
