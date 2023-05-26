@@ -189,6 +189,8 @@ namespace LoL_Companion
             }
         }
 
+        bool chat_in_finalization = false;
+
         public void connectToLCU()
         {
             LCU_Request.getriotCredentials(null);
@@ -210,6 +212,20 @@ namespace LoL_Companion
                         var uri = json["uri"].ToString();
                         var data = json["data"].ToString();
 
+                        if (uri.Contains("/lol-champ-select/v1/session"))
+                        {
+                            // Get phase
+                            LCU_Request.GET("/lol-champ-select/v1/session");
+                            JObject json_ = (JObject)JsonConvert.DeserializeObject(Form1.Object.response);
+                            string phase = json_["timer"]["phase"].ToString();
+
+                            if (phase == "FINALIZATION" && chat_in_finalization == false && Form1.Object.materialCheckBox21.Checked == true)
+                            {
+                                Form1.Object.sendChatinChampSelect(Form1.Object.materialSingleLineTextField2.Text);
+                                chat_in_finalization = true;
+                            }
+                        }
+
                         //Lobby Behaviour (Ban, Pick for Ranked)
                         if (uri.Contains("/lol-champ-select/v1/summoners/"))
                         {
@@ -229,7 +245,8 @@ namespace LoL_Companion
                                 //Champion Ban
                                 if (Form1.Object.materialCheckBox20.Checked == true && activeActionType == "ban")
                                 {
-                                    Form1.Object.sendChatinChampSelect($"{Form1.Object.comboBox3.Text} 밴 하지 말아주세요.");
+                                    if (Form1.Object.materialCheckBox19.Checked == true)
+                                        Form1.Object.sendChatinChampSelect(Form1.Object.materialSingleLineTextField1.Text);
 
                                     //Ban Champion
                                     Form1.Object.json = "{" + $"\"championId\":{Form1.Object.selectedBanChampionId}, \"completed\": true" + "}";
@@ -274,6 +291,7 @@ namespace LoL_Companion
                                 OPGG.Clear();
                                 calledoutSummonerId.Clear();
                                 Form1.Object.isChatAvailable = false;
+                                chat_in_finalization = false;
 
                                 if (Form1.Object.materialCheckBox8.Checked == true)
                                 {

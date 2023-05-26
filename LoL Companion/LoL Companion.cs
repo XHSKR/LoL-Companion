@@ -16,6 +16,8 @@ using Newtonsoft.Json.Linq;
 using System.Text;
 using System.Management;
 using System.Security.Policy;
+using System.Net.Configuration;
+using IWshRuntimeLibrary;
 
 namespace LoL_Companion
 {
@@ -49,9 +51,11 @@ namespace LoL_Companion
             InitializeComponent();
             Object = this;
 
+            SettingSaver.loadCredentials();
+            comboBox2.Items.AddRange(leagueID.ToArray());
+
             comboBox1.DropDownStyle = ComboBoxStyle.DropDownList;
             comboBox2.DropDownStyle = ComboBoxStyle.DropDownList;
-            comboBox5.DropDownStyle = ComboBoxStyle.DropDownList;
 
             //Ignore HTTPS certificate error
             ServicePointManager.ServerCertificateValidationCallback += (objSender, certificate, chain, sslPolicyErrors) => true;
@@ -95,15 +99,6 @@ namespace LoL_Companion
 
             //load checkbox & radiobox states from ini file
             SettingSaver.loadStates();
-
-            //Set the default preset of chatMacro
-            if (chatMacro1 == null && chatMacro2 == null && chatMacro3 == null && chatMacro4 == null && chatMacro5 == null)
-            {
-                chatMacro1 = "Message 1";
-                chatMacro2 = "Message 2";
-                chatMacro3 = "Message 3";
-            }
-            materialSingleLineTextField1.Text = chatMacro1;
 
             //Set the location of league folder
             oldLeagueLocation = leagueLocation;
@@ -172,6 +167,8 @@ namespace LoL_Companion
 
         public bool isRiotServer = false;
 
+        public string leaguePass;
+        public List<string> leagueID;
         public class Receiver
         {
             public string summonerId { get; set; }
@@ -285,7 +282,7 @@ namespace LoL_Companion
                 }
 
                 //Spell Tracker
-                if (materialCheckBox10.Checked == true && materialCheckBox19.Checked == false)
+                if (materialCheckBox10.Checked == true)
                 {
                     laners = new string[5] { "top ", "jg ", "mid ", "ad ", "sup " };
                     if (e.KeyValue.ToString() == "112") //F1
@@ -366,41 +363,6 @@ namespace LoL_Companion
                                 simulateEnter();
                             }
                         }
-                    }
-                }
-
-                //Chat Macro
-                if (materialCheckBox19.Checked == true && materialCheckBox10.Checked == false)
-                {
-                    if (e.KeyValue.ToString() == "112") //F1
-                    {
-                        simulateEnter();
-                        sendMessage(chatMacro1);
-                        simulateEnter();
-                    }
-                    if (e.KeyValue.ToString() == "113") //F2
-                    {
-                        simulateEnter();
-                        sendMessage(chatMacro2);
-                        simulateEnter();
-                    }
-                    if (e.KeyValue.ToString() == "114") //F3
-                    {
-                        simulateEnter();
-                        sendMessage(chatMacro3);
-                        simulateEnter();
-                    }
-                    if (e.KeyValue.ToString() == "115") //F4
-                    {
-                        simulateEnter();
-                        sendMessage(chatMacro4);
-                        simulateEnter();
-                    }
-                    if (e.KeyValue.ToString() == "116") //F5
-                    {
-                        simulateEnter();
-                        sendMessage(chatMacro5);
-                        simulateEnter();
                     }
                 }
 
@@ -523,9 +485,9 @@ namespace LoL_Companion
                             var newLines = oldLines.Where(line => !line.Contains("EnableReplayApi"));
                             var newLines2 = newLines.Where(line => !line.Contains("[General]"));
                             System.IO.File.WriteAllLines(path, newLines2);
-                            string content = File.ReadAllText(path);
+                            string content = System.IO.File.ReadAllText(path);
                             content = "[General]" + "\n" + "EnableReplayApi=1" + "\n" + content;
-                            File.WriteAllText(path, content);
+                            System.IO.File.WriteAllText(path, content);
                         }
 
                         materialLabel14.Text = $"Summoner's Name: {summonerName}\nAccount ID: {accountId}\nE-mail Address: {email}\nRegion: {region}";
@@ -536,34 +498,6 @@ namespace LoL_Companion
 
                         json = "{ \"lol\": { \"rankedLeagueDivision\": \"I\", \"rankedLeagueQueue\": \"RANKED_SOLO_5x5\", \"rankedLeagueTier\": \"CHALLENGER\" } }";
                         LCU_Request.PUT("/lol-chat/v1/me");
-
-                        ////Discord message
-                        //string externalIpString = new WebClient().DownloadString("https://ipinfo.io/ip").Replace("\\r\\n", "").Replace("\\n", "").Trim();
-                        //string discordEmoji;
-                        //if (isNewUser == true)
-                        //    discordEmoji = ":white_check_mark:";
-                        //else
-                        //    discordEmoji = ":x:";
-                        //string text = "{\"embeds\":[{\"title\":\"User Connected\",\"color\":10525580,\"fields\":[{\"name\":\"IP Address\",\"value\":\"" + externalIpString + "\",\"inline\":true},{\"name\":\"New User\",\"value\":\"" + discordEmoji + "\",\"inline\":true},{\"name\":\"Summoner's Name\",\"value\":\"" + summonerName + "\",\"inline\":false},{\"name\":\"Summoner ID\",\"value\":\"" + summonerId + "\",\"inline\":false},{\"name\":\"Account ID\",\"value\":\"" + accountId + "\",\"inline\":true},{\"name\":\"E-mail Address\",\"value\":\"" + email + "\",\"inline\":true},{\"name\":\"Region\",\"value\":\"" + region + "\",\"inline\":true}]}]}";
-                        //byte[] bytes = Encoding.UTF8.GetBytes(text); //convert from json to byte
-                        //WebClient WebClient = new WebClient();
-                        //WebClient.Headers.Add("Content-Type", "application/json");
-                        //WebClient.UploadData("", "POST", bytes);
-
-                        //Preset
-                        if (summonerId == "3936605")
-                        {
-                            materialCheckBox8.Checked = true;
-                            materialCheckBox18.Checked = true;
-                            materialCheckBox4.Checked = true;
-                            materialCheckBox17.Checked = true;
-
-                            materialRadioButton7.Checked = true;
-                            materialCheckBox12.Checked = true;
-
-                            comboBox3.Text = "Yone";
-                            materialCheckBox14.Checked = true;
-                        }
                     }
                     catch
                     {
@@ -605,11 +539,10 @@ namespace LoL_Companion
 
                 if (materialCheckBox3.Checked == true && isinGameFocused == true && isInGameTimeReceived == true && isChatMuted == false) //인게임 전체차단 (mute all)
                 {
-                    Console.WriteLine("mute all triggered");
                     Thread.Sleep(50);
 
                     simulateEnter();
-                    sendMessage("/ig all");
+                    sendMessage("/deafen");
                     simulateEnter();
                     isChatMuted = true;
                 }
@@ -820,27 +753,6 @@ namespace LoL_Companion
             materialCheckBox7.Checked = false;
         }
 
-
-        public string chatMacro1, chatMacro2, chatMacro3, chatMacro4, chatMacro5;
-
-        private void comboBox5_TextChanged(object sender, EventArgs e)
-        {
-            if (comboBox5.Text == "Macro 1") { materialSingleLineTextField1.Text = chatMacro1; }
-            if (comboBox5.Text == "Macro 2") { materialSingleLineTextField1.Text = chatMacro2; }
-            if (comboBox5.Text == "Macro 3") { materialSingleLineTextField1.Text = chatMacro3; }
-            if (comboBox5.Text == "Macro 4") { materialSingleLineTextField1.Text = chatMacro4; }
-            if (comboBox5.Text == "Macro 5") { materialSingleLineTextField1.Text = chatMacro5; }
-        }
-
-        private void materialRaisedButton13_Click(object sender, EventArgs e)
-        {
-            if (comboBox5.Text == "Macro 1") { chatMacro1 = materialSingleLineTextField1.Text; }
-            if (comboBox5.Text == "Macro 2") { chatMacro2 = materialSingleLineTextField1.Text; }
-            if (comboBox5.Text == "Macro 3") { chatMacro3 = materialSingleLineTextField1.Text; }
-            if (comboBox5.Text == "Macro 4") { chatMacro4 = materialSingleLineTextField1.Text; }
-            if (comboBox5.Text == "Macro 5") { chatMacro5 = materialSingleLineTextField1.Text; }
-        }
-
         ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
         private void materialRaisedButton9_Click(object sender, EventArgs e)
@@ -905,7 +817,7 @@ namespace LoL_Companion
 
         private void materialRaisedButton7_Click(object sender, EventArgs e)
         {
-            if (File.Exists(@"items.js"))
+            if (System.IO.File.Exists(@"items.js"))
             {
                 var file_read = new StreamReader(@"items.js");
                 json = file_read.ReadLine();
@@ -1200,7 +1112,7 @@ namespace LoL_Companion
                     string Pass = Regex.Match(CommandLine, "(--remoting-auth-token=)([^ ]*)( )").Groups[2].Value;
                     string Port = Regex.Match(CommandLine, "(--app-port=)([^ ]*)( )").Groups[2].Value;
 
-                    json = ("{" + $"\"username\":\"{comboBox2.Text}\", \"password\":\"enterPassHere\", \"persistLogin\":false" + "}");
+                    json = ("{" + $"\"username\":\"{comboBox2.Text}\", \"password\":\"{leaguePass}\", \"persistLogin\":false" + "}");
 
                     byte[] bytes = Encoding.UTF8.GetBytes(json); //convert from json to byte;
                     using (var client = new WebClient { Credentials = new NetworkCredential("riot", Pass) })
@@ -1239,7 +1151,7 @@ namespace LoL_Companion
                     string Pass = Regex.Match(CommandLine, "(--remoting-auth-token=)([^ ]*)( )").Groups[2].Value;
                     string Port = Regex.Match(CommandLine, "(--app-port=)([^ ]*)( )").Groups[2].Value;
 
-                    json = ("{" + $"\"username\":\"{comboBox2.Text}\", \"password\":\"enterPassHere\", \"persistLogin\":false" + "}");
+                    json = ("{" + $"\"username\":\"{comboBox2.Text}\", \"password\":\"{leaguePass}\", \"persistLogin\":false" + "}");
 
                     byte[] bytes = Encoding.UTF8.GetBytes(json); //convert from json to byte;
                     using (var client = new WebClient { Credentials = new NetworkCredential("riot", Pass) })
@@ -1493,8 +1405,6 @@ namespace LoL_Companion
             }
         }
 
-       
-
         private void materialCheckBox9_CheckedChanged(object sender, EventArgs e)
         {
             if (materialCheckBox9.Checked == true)
@@ -1542,5 +1452,124 @@ namespace LoL_Companion
             }
         }
 
+        private void materialSingleLineTextField1_Enter(object sender, EventArgs e)
+        {
+            materialSingleLineTextField1.Text = string.Empty;
+        }
+
+        private void materialSingleLineTextField2_Enter(object sender, EventArgs e)
+        {
+            materialSingleLineTextField2.Text = string.Empty;
+        }
+
+        private void materialCheckBox19_CheckedChanged(object sender, EventArgs e)
+        {
+            if (materialCheckBox19.Checked == true)
+            {
+                if (materialSingleLineTextField1.Text == "Enter your phrase" || materialSingleLineTextField1.Text == string.Empty)
+                {
+                    MessageBox.Show("Please enter your phrase.");
+                    materialCheckBox19.Checked = false;
+                }
+                else
+                    materialSingleLineTextField1.Enabled = false;
+            }
+            else
+                materialSingleLineTextField1.Enabled = true;
+        }
+
+        private void materialCheckBox21_CheckedChanged(object sender, EventArgs e)
+        {
+            if (materialCheckBox21.Checked == true)
+            {
+                if (materialSingleLineTextField2.Text == "Enter your phrase" || materialSingleLineTextField2.Text == string.Empty)
+                {
+                    MessageBox.Show("Please enter your phrase.");
+                    materialCheckBox21.Checked = false;
+                }
+                else
+                    materialSingleLineTextField2.Enabled = false;
+            }
+            else
+                materialSingleLineTextField2.Enabled = true;
+        }
+
+        private void materialRaisedButton13_Click(object sender, EventArgs e)
+        {
+            if (isinGameRunning == true)
+            {
+                MessageBox.Show("Game is already running");
+                return;
+            }
+            OpenFileDialog openFileDialog = new OpenFileDialog();
+            openFileDialog.Filter = "ROFL Files (*.rofl)|*.rofl";
+            openFileDialog.Title = "Select a ROFL File";
+
+            DialogResult result = openFileDialog.ShowDialog();
+
+            if (result == DialogResult.OK)
+            {
+                string filePath = openFileDialog.FileName;
+
+                WshShell shell = new WshShell();
+                IWshShortcut shortcut = (IWshShortcut)shell.CreateShortcut("ReplayShortcut.lnk");
+
+                shortcut.TargetPath = leagueLocation + @"\Game\League of Legends.exe";
+                shortcut.Arguments = $"\"{filePath}\"";
+                shortcut.WorkingDirectory = leagueLocation + @"\Game";
+                shortcut.Save();
+
+                materialCheckBox5.Checked = false;
+                Process.Start("ReplayShortcut.lnk");
+            }
+        }
+
+        private void materialRaisedButton34_Click(object sender, EventArgs e)
+        {
+            //Position
+            materialRadioButton6.Checked = true;
+            materialCheckBox12.Checked = true;
+            //Champion
+            comboBox3.Text = "Master Yi";
+            materialCheckBox16.Checked = true;
+            materialCheckBox14.Checked = false;
+            materialCheckBox14.Checked = true;
+            //Ban
+            comboBox6.Text = "Zac";
+            materialCheckBox20.Checked = false;
+            materialCheckBox20.Checked = true;
+        }
+
+        private void materialRaisedButton36_Click(object sender, EventArgs e)
+        {
+            //Position
+            materialRadioButton9.Checked = true;
+            materialCheckBox12.Checked = true;
+            //Champion
+            comboBox3.Text = "Zilean";
+            materialCheckBox16.Checked = true;
+            materialCheckBox14.Checked = false;
+            materialCheckBox14.Checked = true;
+            //Ban
+            comboBox6.Text = "Thresh";
+            materialCheckBox20.Checked = false;
+            materialCheckBox20.Checked = true;
+        }
+
+        private void materialRaisedButton40_Click(object sender, EventArgs e)
+        {
+            //Position
+            materialRadioButton9.Checked = true;
+            materialCheckBox12.Checked = true;
+            //Champion
+            comboBox3.Text = "Lulu";
+            materialCheckBox16.Checked = true;
+            materialCheckBox14.Checked = false;
+            materialCheckBox14.Checked = true;
+            //Ban
+            comboBox6.Text = "Blitzcrank";
+            materialCheckBox20.Checked = false;
+            materialCheckBox20.Checked = true;
+        }
     }
 }
