@@ -1,21 +1,20 @@
-﻿using System;
-using System.Windows.Forms;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-using WindowsInput;
-using System.Diagnostics;
-using System.Text.RegularExpressions;
-using System.Runtime.InteropServices;
-using System.Net;
-using Newtonsoft.Json;
-using MaterialSkin;
+﻿using IWshRuntimeLibrary;
 using MaterialSkin.Controls;
-using System.IO;
 using Newtonsoft.Json.Linq;
-using System.Text;
+using System;
+using System.Net.Http;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
+using System.Linq;
 using System.Management;
-using IWshRuntimeLibrary;
+using System.Net;
+using System.Runtime.InteropServices;
+using System.Text;
+using System.Text.RegularExpressions;
+using System.Threading;
+using System.Windows.Forms;
+using WindowsInput;
 
 namespace LoL_Companion
 {
@@ -33,20 +32,13 @@ namespace LoL_Companion
             set { _Object = value; }
         }
 
-        class RootObject
-        {
-            public Dictionary<string, Data> data { get; set; }
-        }
-
-        class Data
-        {
-            public string key { get; set; }
-            public string name { get; set; }
-        }
-
         public Form1()
         {
             InitializeComponent();
+        }
+
+        private void Form1_Load(object sender, EventArgs e)
+        {
             Object = this;
 
             SettingSaver.loadCredentials();
@@ -58,11 +50,6 @@ namespace LoL_Companion
             //Ignore HTTPS certificate error
             ServicePointManager.ServerCertificateValidationCallback += (objSender, certificate, chain, sslPolicyErrors) => true;
 
-            var materialSkinManager = MaterialSkinManager.Instance;
-            materialSkinManager.AddFormToManage(this);
-            materialSkinManager.Theme = MaterialSkinManager.Themes.LIGHT;
-            materialSkinManager.ColorScheme = new ColorScheme(Primary.BlueGrey800, Primary.BlueGrey900, Primary.BlueGrey500, Accent.LightBlue200, TextShade.WHITE);
-
             //gHook
             gHook = new GlobalKeyboardHook(); // Create a new GlobalKeyboardHook
             gHook.KeyDown += new KeyEventHandler(gHook_KeyDown); // Declare a KeyDown Event
@@ -70,21 +57,31 @@ namespace LoL_Companion
             foreach (Keys key in Enum.GetValues(typeof(Keys)))
                 gHook.HookedKeys.Add(key);
             gHook.hook();
+        }
 
-            //Get the latest version of league and combine with the given URL to retrieve champion data
-            string version = new WebClient().DownloadString(@"https://ddragon.leagueoflegends.com/api/versions.json");
-            var reg = new Regex("\".*?\"");
-            var matches = reg.Matches(version);
-            string currentVersion = matches[0].ToString().Replace("\"", "");
-            string champURL = "http://ddragon.leagueoflegends.com/cdn/" + currentVersion + "/data/en_US/champion.json";
+        private void Form1_Shown(object sender, EventArgs e)
+        {
+            string versionUrl = "https://ddragon.leagueoflegends.com/api/versions.json";
+            string championUrlFormat = "http://ddragon.leagueoflegends.com/cdn/{0}/data/en_US/champion.json";
 
-            var json = new WebClient().DownloadString(champURL);
-            RootObject root = JsonConvert.DeserializeObject<RootObject>(json);
-            foreach (string key in root.data.Keys)
+            using (HttpClient client = new HttpClient())
             {
-                Data champion = root.data[key];
-                string[] values = { champion.name, champion.key };
-                Champion.Add(values);
+                string versionResponse = client.GetStringAsync(versionUrl).GetAwaiter().GetResult();
+                string currentVersion = JArray.Parse(versionResponse)?.FirstOrDefault()?.ToString();
+
+                string championUrl = string.Format(championUrlFormat, currentVersion);
+
+                string championResponse = client.GetStringAsync(championUrl).GetAwaiter().GetResult();
+                JObject root = JObject.Parse(championResponse);
+                var champions = root["data"].Values();
+
+                foreach (var champion in champions)
+                {
+                    string name = champion["name"].ToString();
+                    string key = champion["key"].ToString();
+                    string[] values = { name, key };
+                    Champion.Add(values);
+                }
             }
 
             //Add Champion Name to the combobox
@@ -122,21 +119,12 @@ namespace LoL_Companion
         //Declare Variables
         string oldLeagueLocation;
 
-        public bool isNewUser = false;
-
-        string summonerName;
-        string summonerId;
-        string accountId;
-        string region;
-        string email;
+        string summonerName, summonerId, accountId, region, email;
 
         public List<string[]> Champion = new List<string[]>();
 
         public string leagueLocation = "C:/Riot Games/League of Legends/";
-        public string riotURL = "https://127.0.0.1:";
-        public string riotPort;
-        public string riotPass;
-        public string completeURL;
+        public string riotPort, riotPass, completeURL;
         public string response;
         public string json = string.Empty;
 
@@ -148,7 +136,7 @@ namespace LoL_Companion
         int ingameTime;
         DateTime dt;
 
-        bool isClientRunning = false;
+        public bool isClientRunning = false;
         public bool isinGameRunning = false;
         public bool isClientFocused = false;
         bool isinGameFocused = false;
@@ -163,19 +151,17 @@ namespace LoL_Companion
 
         int afkTimeForAutomation = 0;
 
-        public bool isRiotServer = false;
+        private bool isRiotServer = false;
 
-        public string leaguePass;
         public List<string> leagueID;
+        public string leaguePass;
         public class Receiver
         {
             public string summonerId { get; set; }
 
         }
 
-        public bool isAccountInfoRetrieved = false;
         public bool isConnectedtoWebsocket = false;
-        public bool isSummonerSearched = false;
 
         [DllImport("user32.dll")] static extern IntPtr GetForegroundWindow();
         [DllImport("user32.dll")] static extern int GetWindowText(IntPtr hWnd, StringBuilder text, int count);
@@ -189,9 +175,9 @@ namespace LoL_Companion
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-        public void sendMessage(string chatMessage)
+        private void sendMessage(string chatMessage)
         {
-            if (string.IsNullOrEmpty(chatMessage) == false)
+            if (!string.IsNullOrEmpty(chatMessage))
             {
                 float PartsSize = 30;
 
@@ -209,13 +195,12 @@ namespace LoL_Companion
             }
         }
 
-        public void simulateEnter()
+        private void simulateEnter()
         {
             InputSimulator Simulator = new InputSimulator();
             Simulator.Keyboard.KeyPress(WindowsInput.Native.VirtualKeyCode.RETURN);
             Thread.Sleep(20);
         }
-
 
         private string getActiveWindowName()
         {
@@ -230,7 +215,7 @@ namespace LoL_Companion
             return null;
         }
 
-        public void sendAfkWarning()
+        private void sendAfkWarning()
         {
             this.TopMost = true;
             this.WindowState = FormWindowState.Normal;
@@ -238,22 +223,22 @@ namespace LoL_Companion
             label1.Visible = true;
         }
 
-        public void gHook_KeyDown(object sender, KeyEventArgs e)
+        private void gHook_KeyDown(object sender, KeyEventArgs e)
         {
-            if (isinGameRunning = true && isinGameFocused == true && isInGameTimeReceived == true)
+            if (isinGameRunning && isinGameFocused && isInGameTimeReceived)
             {
                 // Spamming
-                if (e.KeyValue.ToString() == "222" && isSpamOn == true) // ' key 
+                if (e.KeyValue.ToString() == "222" && isSpamOn) // ' key 
                 {
                     string str = materialSingleLineTextField6.Text;
                     str = str.ToUpper(); //대문자로 치환
 
-                    if (materialCheckBox7.Checked == true) // Accumulative
+                    if (materialCheckBox7.Checked) // Accumulative
                     {
                         for (int i = 0; i < str.Length; i++)
                         {
                             simulateEnter();
-                            if (materialCheckBox6.Checked == true) //전체채팅이 켜져있다면
+                            if (materialCheckBox6.Checked) //전체채팅이 켜져있다면
                                 sendMessage("/all " + str.Substring(0, i + 1));
                             else
                                 sendMessage(str.Substring(0, i + 1));
@@ -263,7 +248,7 @@ namespace LoL_Companion
                     else //기본
                     {
                         simulateEnter();
-                        if (materialCheckBox6.Checked == true) //전체채팅이 켜져있다면
+                        if (materialCheckBox6.Checked) //전체채팅이 켜져있다면
                             sendMessage("/all " + str.ToString());
                         else
                             sendMessage(str);
@@ -280,7 +265,7 @@ namespace LoL_Companion
                 }
 
                 //Spell Tracker
-                if (materialCheckBox10.Checked == true)
+                if (materialCheckBox10.Checked)
                 {
                     laners = new string[5] { "top ", "jg ", "mid ", "ad ", "sup " };
                     if (e.KeyValue.ToString() == "112") //F1
@@ -311,11 +296,11 @@ namespace LoL_Companion
 
                     /////////////////////////////////////////////
 
-                    if (e.KeyValue.ToString() == "192" && materialCheckBox2.Checked == true) //Caps Lock을 사용한다고 했는데 `키를 누름
+                    if (e.KeyValue.ToString() == "192" && materialCheckBox2.Checked) //Caps Lock을 사용한다고 했는데 `키를 누름
                     {
                         return;
                     }
-                    if (e.KeyValue.ToString() == "20" && materialCheckBox2.Checked == false) // `키를 사용한다고 했는데 Caps Lock을 누름
+                    if (e.KeyValue.ToString() == "20" && !materialCheckBox2.Checked) // `키를 사용한다고 했는데 Caps Lock을 누름
                     {
                         return;
                     }
@@ -323,7 +308,7 @@ namespace LoL_Companion
                     if (e.KeyValue.ToString() == "112" || e.KeyValue.ToString() == "113" || e.KeyValue.ToString() == "114" ||
                         e.KeyValue.ToString() == "115" || e.KeyValue.ToString() == "116" || e.KeyValue.ToString() == "192" || e.KeyValue.ToString() == "20") //Keypress 감지
                     {
-                        if (isinGameRunning == true)
+                        if (isinGameRunning)
                         {
                             string spelltimes = "";
                             string editedSpelltimes = "";
@@ -338,7 +323,7 @@ namespace LoL_Companion
                                 if (lanerTimer[i] != 0)
                                 {
                                     string fourDigit;
-                                    if (materialCheckBox1.Checked == true)
+                                    if (materialCheckBox1.Checked)
                                     {
                                         string lanerTimerString = lanerTimer[i].ToString();
                                         string roundDown = lanerTimerString.Substring(0, lanerTimerString.Length - 1) + "0";
@@ -364,9 +349,9 @@ namespace LoL_Companion
                     }
                 }
 
-                if (materialCheckBox15.Checked == true && e.KeyValue.ToString() == "190") // .key
+                if (materialCheckBox15.Checked && e.KeyValue.ToString() == "190") // .key
                 {
-                    if (isAutomaticfAfkTriggered == true)
+                    if (isAutomaticfAfkTriggered)
                         isAutomaticfAfkTriggered = false;
                     else
                     {
@@ -384,279 +369,249 @@ namespace LoL_Companion
 
         private void timer1_Tick(object sender, EventArgs e) //Variable
         {
-            //League 클라이언트가 켜져있는지
             Process[] leagueClient = Process.GetProcessesByName("LeagueClientUXRender");
-            if (leagueClient.Length != 0)
-                isClientRunning = true;
-            else
-                isClientRunning = false;
-
-            //인게임이 켜져있는지
             Process[] pname = Process.GetProcessesByName("League of Legends");
-            if (pname.Length != 0)
-                isinGameRunning = true;
-            else
-                isinGameRunning = false;
 
-            //포커싱
+            isClientRunning = leagueClient.Length != 0;
+            isinGameRunning = pname.Length != 0;
+
             string focusedApp = getActiveWindowName();
-            if (focusedApp == "League of Legends")
-                isClientFocused = true;
-            else
-                isClientFocused = false;
-
-            if (focusedApp == "League of Legends (TM) Client")
-                isinGameFocused = true;
-            else
-                isinGameFocused = false;
+            isClientFocused = focusedApp == "League of Legends";
+            isinGameFocused = focusedApp == "League of Legends (TM) Client";
 
 
-            ////////////////////////////////////////////////////////////////////////////////////////////
-
-
-            if (isClientRunning == true && isinGameRunning == false) //클라이언트만 켜져있으면 (인게임X)
-            {
-                if (isAccountInfoRetrieved == false) //데이터를 한번도 받아오지 않았다면
+            if (isClientRunning)
+                if (!isConnectedtoWebsocket)
                 {
-                    Cursor.Current = Cursors.WaitCursor;
-
-                    //Set the location of league folder
-                    Process[] process = Process.GetProcessesByName("RiotClientServices");
                     try
                     {
-                        leagueLocation = process[0].MainModule.FileName;
-                        leagueLocation = leagueLocation.Substring(0, leagueLocation.Length - 34);
-                        leagueLocation += @"League of Legends\";
+                        RetrieveAccountInfo();
+                        Websocket.connectToLCU();
+                        isConnectedtoWebsocket = true;
                     }
                     catch { }
-
-                    //롤 계정정보 가져오기
-                    try
-                    {
-                        LCU_Request.GET("/lol-summoner/v1/current-summoner");
-                        dynamic strings = JsonConvert.DeserializeObject(response);
-                        summonerName = strings.displayName; //"displayName":"Tracer"
-                        summonerId = strings.summonerId; //"summonerId": 2193977851
-
-                        LCU_Request.GET("/lol-login/v1/login-platform-credentials");
-                        strings = JsonConvert.DeserializeObject(response);
-                        accountId = strings.username; //"username": "xhsoce"
-
-                        LCU_Request.GET("/riotclient/region-locale");
-                        strings = JsonConvert.DeserializeObject(response);
-                        region = strings.webRegion; //"webRegion": "oce"
-                        region = region.ToUpper();
-                        email = "Not Available";
-
-                        if (region == "STAGING.NA")
-                            isRiotServer = false;
-                        else
-                            isRiotServer = true;
-
-                        if (isRiotServer == false)
-                        {
-                            leagueLocation = oldLeagueLocation;
-
-                            materialCheckBox4.Enabled = false;
-                            materialCheckBox11.Enabled = false;
-                            materialCheckBox5.Enabled = false;
-                            materialCheckBox4.Checked = false;
-                            materialCheckBox11.Checked = false;
-                            materialCheckBox5.Checked = false;
-
-                            region = "Non-Riot Server (PBE, China, Garena)";
-                        }
-                        else
-                        {
-                            materialCheckBox4.Enabled = true;
-                            materialCheckBox11.Enabled = true;
-                            materialCheckBox5.Enabled = true;
-
-                            //If it's a Riot Server, get an email address of the account.
-                            LCU_Request.GET("/lol-email-verification/v1/email");
-                            strings = JsonConvert.DeserializeObject(response);
-                            email = strings.email; //"email": "mail@xhs.kr"
-
-                            //Modifying game.cfg file to use Replay API
-                            string path = leagueLocation + @"Config\game.cfg";
-                            var oldLines = System.IO.File.ReadAllLines(path);
-                            var newLines = oldLines.Where(line => !line.Contains("EnableReplayApi"));
-                            var newLines2 = newLines.Where(line => !line.Contains("[General]"));
-                            System.IO.File.WriteAllLines(path, newLines2);
-                            string content = System.IO.File.ReadAllText(path);
-                            content = "[General]" + "\n" + "EnableReplayApi=1" + "\n" + content;
-                            System.IO.File.WriteAllText(path, content);
-                        }
-
-                        materialLabel14.Text = $"Summoner's Name: {summonerName}\nAccount ID: {accountId}\nE-mail Address: {email}\nRegion: {region}";
-
-                        sendClientMessage("LoL Companion is successfully connected to the League Client.");
-
-                        isAccountInfoRetrieved = true;
-
-                        json = "{ \"lol\": { \"rankedLeagueDivision\": \"I\", \"rankedLeagueQueue\": \"RANKED_SOLO_5x5\", \"rankedLeagueTier\": \"CHALLENGER\" } }";
-                        LCU_Request.PUT("/lol-chat/v1/me");
-                    }
-                    catch
-                    {
-                        isAccountInfoRetrieved = false;
-                    }
                 }
-                else //데이터를 받아왔다면 websocket 연결 시도
+
+            if (!isClientRunning)
+                isConnectedtoWebsocket = false;
+
+            if (isinGameRunning)
+                HandleInGame();
+            else
+                ResetInGame();
+        }
+        private void RetrieveAccountInfo()
+        {
+            Process[] processes = Process.GetProcessesByName("RiotClientServices");
+            if (processes.Length > 0)
+            {
+                leagueLocation = processes[0].MainModule.FileName;
+                leagueLocation = leagueLocation.Substring(0, leagueLocation.Length - 34);
+                leagueLocation += @"League of Legends\";
+            }
+
+            LCU_Request.GET("/lol-summoner/v1/current-summoner");
+            JObject current_summoner = JObject.Parse(response);
+            summonerName = current_summoner["displayName"].ToString();
+            summonerId = current_summoner["summonerId"].ToString();
+
+            LCU_Request.GET("/lol-login/v1/login-platform-credentials");
+            JObject login_platform_credentials = JObject.Parse(response);
+            accountId = login_platform_credentials["username"].ToString();
+
+            LCU_Request.GET("/riotclient/region-locale");
+            JObject region_locale = JObject.Parse(response);
+            region = region_locale["webRegion"].ToString().ToUpper();
+            email = "Not Available";
+
+            bool isRiotServer = region != "STAGING.NA";
+
+            if (isRiotServer)
+            {
+                materialCheckBox4.Enabled = true;
+                materialCheckBox11.Enabled = true;
+                materialCheckBox5.Enabled = true;
+
+                //If it's a Riot Server, get the email address of the account.
+                LCU_Request.GET("/lol-email-verification/v1/email");
+                JObject email_ = JObject.Parse(response);
+                email = email_["email"].ToString();
+
+                // Modify game.cfg file to use Replay API
+                string path = leagueLocation + @"Config\game.cfg";
+                var oldLines = System.IO.File.ReadAllLines(path);
+                var newLines = oldLines.Where(line => !line.Contains("EnableReplayApi"));
+                var newLines2 = newLines.Where(line => !line.Contains("[General]"));
+                System.IO.File.WriteAllLines(path, newLines2);
+                string content = System.IO.File.ReadAllText(path);
+                content = "[General]" + "\n" + "EnableReplayApi=1" + "\n" + content;
+                System.IO.File.WriteAllText(path, content);
+
+                // Modify game.cfg file to use Replay API
+                string gameCfgPath = Path.Combine(leagueLocation, @"Config\game.cfg");
+                string[] gameCfgLines = System.IO.File.ReadAllLines(gameCfgPath);
+                var modifiedLines = new List<string> { "[General]", "EnableReplayApi=1" };
+                modifiedLines.AddRange(gameCfgLines.Where(line => !line.Contains("EnableReplayApi")));
+                System.IO.File.WriteAllLines(gameCfgPath, modifiedLines);
+            }
+            else
+            {
+                leagueLocation = oldLeagueLocation;
+
+                materialCheckBox4.Enabled = false;
+                materialCheckBox11.Enabled = false;
+                materialCheckBox5.Enabled = false;
+                materialCheckBox4.Checked = false;
+                materialCheckBox11.Checked = false;
+                materialCheckBox5.Checked = false;
+
+                region = "No    n-Riot Server (PBE, China, Garena)";
+            }
+
+            materialLabel14.Text = $"Summoner's Name: {summonerName}\nAccount ID: {accountId}\nE-mail Address: {email}\nRegion: {region}";
+
+            sendClientMessage("LoL Companion is successfully connected to the League Client.");
+
+            json = "{ \"lol\": { \"rankedLeagueDivision\": \"I\", \"rankedLeagueQueue\": \"RANKED_SOLO_5x5\", \"rankedLeagueTier\": \"CHALLENGER\" } }";
+            LCU_Request.PUT("/lol-chat/v1/me");
+        }
+
+        private void HandleInGame()
+        {
+            if (isInGameTimeReceived)
+            {
+                UpdateInGameTime();
+            }
+
+            //관전상태인지 확인
+            if (materialCheckBox5.Checked && isInGameTimeReceived && !isReplayChecked)
+            {
+                try
                 {
-                    if (isConnectedtoWebsocket == false)
-                        Websocket.connectToLCU();
+                    isReplayChecked = true;
+                    var client = new WebClient { };
+                    client.DownloadData("https://127.0.0.1:2999/liveclientdata/activeplayer");
+                }
+                catch
+                {
+                    isReplay = true;
                 }
             }
 
-            if (isClientRunning == false) // if League Client is not running
+            //Disconnect websocket in game
+            if (isConnectedtoWebsocket && isReplay)
             {
-                isAccountInfoRetrieved = false;
+                Websocket.LCU.Close();
                 isConnectedtoWebsocket = false;
             }
 
-            ////////////////////////////////////////////////////////////////////////////////////////////
-
-            if (isinGameRunning == true) //인게임
+            if (materialCheckBox3.Checked && isinGameFocused && isInGameTimeReceived && !isChatMuted)
             {
-                if (isConnectedtoWebsocket == true)
-                {
-                    Websocket.LCU.Close();
-                    isConnectedtoWebsocket = false;
-                }
-
-                if (isInGameTimeReceived == true)
-                {
-                    textBox2.Text = dt.AddSeconds(ingameTime).ToString("mm:ss"); //Current Ingame time
-                    textBox3.Text = dt.AddSeconds(lanerTimer[0]).ToString("mm:ss"); //Top
-                    textBox4.Text = dt.AddSeconds(lanerTimer[1]).ToString("mm:ss"); //Jungle
-                    textBox5.Text = dt.AddSeconds(lanerTimer[2]).ToString("mm:ss"); //Mid
-                    textBox6.Text = dt.AddSeconds(lanerTimer[3]).ToString("mm:ss"); //Adc
-                    textBox7.Text = dt.AddSeconds(lanerTimer[4]).ToString("mm:ss"); //Support
-                }
-
-                if (materialCheckBox3.Checked == true && isinGameFocused == true && isInGameTimeReceived == true && isChatMuted == false) //인게임 전체차단 (mute all)
-                {
-                    Thread.Sleep(50);
-
-                    simulateEnter();
-                    sendMessage("/deafen");
-                    simulateEnter();
-                    isChatMuted = true;
-                }
-
-                //Synchronize afkTimer
-                if (isinGameFocused == false && afkTimeForAutomation > 1)
-                {
-                    afkTime = afkTimeForAutomation;
-                    afkTimeForAutomation = 0;
-                }
-
-                if (afkTimeForAutomation == 130)
-                {
-                    mouse_event(MOUSEEVENTF_RIGHTDOWN, 0, 0, 0, 0);
-                    mouse_event(MOUSEEVENTF_RIGHTUP, 0, 0, 0, 0);
-
-                    afkTimeForAutomation = 0;
-                }
-
-                // first afkwarning occurs at 2:40
-                if (afkTime >= 1 && ingameTime == 160)
-                    sendAfkWarning();
-
-                // afkTime 2:10 (130)
-                if (ingameTime >= 430 && afkTime == 130)
-                    sendAfkWarning();
-
-                textBox8.Text = dt.AddSeconds(afkTime).ToString("mm:ss");
-
-                //관전상태인지 확인
-                if (materialCheckBox5.Checked == true && isInGameTimeReceived == true && isReplayChecked == false)
-                {
-                    try
-                    {
-                        isReplayChecked = true;
-                        var client = new WebClient { };
-                        client.DownloadData("https://127.0.0.1:2999/liveclientdata/activeplayer");
-                    }
-                    catch
-                    {
-                        isReplay = true;
-                    }
-                }
-
-                //50 FOV in Replay
-                if (materialCheckBox5.Checked == true && isReplay == true && isReplayDataSent == false)
-                {
-                    string json = "{ \"fieldOfView\": 50.0, \"interfaceScoreboard\": true }";
-                    byte[] bytes = Encoding.ASCII.GetBytes(json); //convert from json to byte
-
-                    using (var client = new WebClient { Credentials = new NetworkCredential("", "") })
-                    {
-                        client.UploadData("https://127.0.0.1:2999/replay/render", "POST", bytes); //Send custom replay settings
-                    }
-
-                    json = "{ \"time\": 80 }";
-                    bytes = Encoding.ASCII.GetBytes(json); //convert from json to byte
-
-                    using (var client = new WebClient { Credentials = new NetworkCredential("", "") })
-                    {
-                        client.UploadData("https://127.0.0.1:2999/replay/playback", "POST", bytes); //Change the ingame Time
-                    }
-                    json = string.Empty;
-
-                    isReplayDataSent = true;
-                }
+                Thread.Sleep(50);
+                simulateEnter();
+                sendMessage("/deafen");
+                simulateEnter();
+                isChatMuted = true;
             }
-            else // if ingame is not running
+
+            if (!isinGameFocused && afkTimeForAutomation > 1)
             {
-                ingameTime = 0;
-                lanerTimer[0] = 0;
-                lanerTimer[1] = 0;
-                lanerTimer[2] = 0;
-                lanerTimer[3] = 0;
-                lanerTimer[4] = 0;
-                textBox2.Text = "";
-                textBox3.Text = "";
-                textBox4.Text = "";
-                textBox5.Text = "";
-                textBox6.Text = "";
-                textBox7.Text = "";
-
-                isInGameTimeReceived = false;
-                isChatMuted = false;
-                isReplayChecked = false;
-                isReplay = false;
-                isReplayDataSent = false;
-
-                isAutomaticfAfkTriggered = false;
+                afkTime = afkTimeForAutomation;
                 afkTimeForAutomation = 0;
+            }
 
-                afkTime = 0;
-                textBox8.Text = string.Empty;
-                this.TopMost = false;
-                label1.Visible = false;
+            if (afkTimeForAutomation == 130)
+            {
+                mouse_event(MOUSEEVENTF_RIGHTDOWN, 0, 0, 0, 0);
+                mouse_event(MOUSEEVENTF_RIGHTUP, 0, 0, 0, 0);
+                afkTimeForAutomation = 0;
+            }
+
+            // first afkwarning occurs at 2:40
+            if (afkTime >= 1 && ingameTime == 160)
+                sendAfkWarning();
+
+            // afkTime 2:10 (130)
+            if (ingameTime >= 430 && afkTime == 130)
+                sendAfkWarning();
+
+            textBox8.Text = dt.AddSeconds(afkTime).ToString("mm:ss");
+
+            //50 FOV in Replay
+            if (materialCheckBox5.Checked && isReplay && !isReplayDataSent)
+            {
+                string json = "{ \"fieldOfView\": 50.0, \"interfaceScoreboard\": true }";
+                byte[] bytes = Encoding.ASCII.GetBytes(json); //convert from json to byte
+
+                using (var client = new WebClient { Credentials = new NetworkCredential("", "") })
+                {
+                    client.UploadData("https://127.0.0.1:2999/replay/render", "POST", bytes); //Send custom replay settings
+                }
+
+                json = "{ \"time\": 80 }";
+                bytes = Encoding.ASCII.GetBytes(json); //convert from json to byte
+
+                using (var client = new WebClient { Credentials = new NetworkCredential("", "") })
+                {
+                    client.UploadData("https://127.0.0.1:2999/replay/playback", "POST", bytes); //Change the ingame Time
+                }
+                json = string.Empty;
+
+                isReplayDataSent = true;
             }
         }
 
-        private void timer2_Tick(object sender, EventArgs e) //afkTime 카운팅 (Timer interval has to be 1000)
+        private void ResetInGame()
         {
-            // 인게임 시간 가져오기
-            double gameTime = 0;
+            ingameTime = 0;
+            lanerTimer = new int[5];
+            textBox2.Text = "";
+            textBox3.Text = "";
+            textBox4.Text = "";
+            textBox5.Text = "";
+            textBox6.Text = "";
+            textBox7.Text = "";
 
-            if (isinGameRunning == true)
+            isInGameTimeReceived = false;
+            isChatMuted = false;
+            isReplayChecked = false;
+            isReplay = false;
+            isReplayDataSent = false;
+
+            isAutomaticfAfkTriggered = false;
+            afkTimeForAutomation = 0;
+
+            afkTime = 0;
+            textBox8.Text = string.Empty;
+            this.TopMost = false;
+            label1.Visible = false;
+        }
+
+        private void UpdateInGameTime()
+        {
+            textBox2.Text = dt.AddSeconds(ingameTime).ToString("mm:ss"); //Current Ingame time
+            textBox3.Text = dt.AddSeconds(lanerTimer[0]).ToString("mm:ss"); //Top
+            textBox4.Text = dt.AddSeconds(lanerTimer[1]).ToString("mm:ss"); //Jungle
+            textBox5.Text = dt.AddSeconds(lanerTimer[2]).ToString("mm:ss"); //Mid
+            textBox6.Text = dt.AddSeconds(lanerTimer[3]).ToString("mm:ss"); //Adc
+            textBox7.Text = dt.AddSeconds(lanerTimer[4]).ToString("mm:ss"); //Support
+        }
+
+        private void timer2_Tick(object sender, EventArgs e)
+        {
+            if (isinGameRunning)
             {
-                if (isInGameTimeReceived == false)
+                if (!isInGameTimeReceived)
                 {
-                    try //게임 로딩중에는 오류가 발생하므로 try 처리
+                    try
                     {
-                        string input = new WebClient().DownloadString(@"https://127.0.0.1:2999/liveclientdata/gamestats"); //1회만 요청
-                        dynamic stuff = JsonConvert.DeserializeObject(input);
-                        gameTime = stuff.gameTime; // "gameTime": 174.66,
+                        string input = new WebClient().DownloadString(@"https://127.0.0.1:2999/liveclientdata/gamestats");
+                        JObject gamestats = JObject.Parse(input);
+                        double gameTime = Convert.ToDouble(gamestats["gameTime"]);
                         if (gameTime > 0.5)
                         {
                             ingameTime = Convert.ToInt32(gameTime);
-                            isInGameTimeReceived = true; //여기까지 오류발생없이 통과하면 값을 true로 변경
+                            isInGameTimeReceived = true;
                         }
                     }
                     catch
@@ -665,17 +620,18 @@ namespace LoL_Companion
                     }
                 }
                 else
+                {
                     ingameTime++;
+                }
             }
 
-            // increases afktime (Automatic)
-            if (isAutomaticfAfkTriggered == true && isinGameFocused == true)
+            if (isAutomaticfAfkTriggered && isinGameFocused)
             {
                 afkTimeForAutomation++;
             }
 
             // increases afktime (Manual)
-            if (isinGameFocused == false && isInGameTimeReceived == true && isReplay == false)
+            if (!isinGameFocused && isInGameTimeReceived && !isReplay)
                 afkTime++;
             else
             {
@@ -692,14 +648,6 @@ namespace LoL_Companion
             LCU_Request.POST("/player-notifications/v1/notifications");
         }
 
-        private void materialCheckBox4_CheckedChanged(object sender, EventArgs e)
-        {
-            if (materialCheckBox4.Checked == true)
-            {
-                isSummonerSearched = false;
-            }
-        }
-
         private void materialRaisedButton1_Click(object sender, EventArgs e) { lanerTimer[0] = 0; }
         private void materialRaisedButton2_Click(object sender, EventArgs e) { lanerTimer[1] = 0; }
         private void materialRaisedButton3_Click(object sender, EventArgs e) { lanerTimer[2] = 0; }
@@ -714,7 +662,7 @@ namespace LoL_Companion
         bool isSpamOn = false;
         private void materialRaisedButton16_Click(object sender, EventArgs e)
         {
-            if (isSpamOn == true) //Disable
+            if (isSpamOn) //Disable
             {
                 isSpamOn = false;
                 materialRaisedButton16.Text = "Spam !";
@@ -750,8 +698,6 @@ namespace LoL_Companion
             materialCheckBox6.Checked = true;
             materialCheckBox7.Checked = false;
         }
-
-        ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
         private void materialRaisedButton9_Click(object sender, EventArgs e)
         {
@@ -866,8 +812,8 @@ namespace LoL_Companion
             try
             {
                 LCU_Request.GET("/lol-summoner/v1/current-summoner");
-                dynamic strings = JsonConvert.DeserializeObject(response);
-                string summonerId = strings.summonerId; //"summonerId": 0,
+                JObject current_summoner = JObject.Parse(response);
+                string summonerId = current_summoner["summonerId"].ToString();
                 LCU_Request.GET("/lol-item-sets/v1/item-sets/" + summonerId + "/sets");
                 Clipboard.SetText(response);
                 MessageBox.Show("Copied to clipboard");
@@ -892,78 +838,6 @@ namespace LoL_Companion
             {
                 MessageBox.Show("Error while requesting POST method.");
             }
-        }
-
-        public void Report()
-        {
-            try
-            {
-                sendClientMessage("Reporting is in progress.");
-
-                //내 SummonerId를 삭제하기 위해 정보 불러오기
-                LCU_Request.GET("/lol-summoner/v1/current-summoner");
-                dynamic strings = JsonConvert.DeserializeObject(response);
-                string mySummonerId = strings.summonerId; //"summonerId": 4134547170
-
-                LCU_Request.GET("/lol-gameflow/v1/session");
-                JObject json_ = (JObject)JsonConvert.DeserializeObject(response);
-
-                var gameId = json_["gameData"]["gameId"].ToString();
-
-                //Team 1
-                var val = json_["gameData"]["teamOne"].ToString();
-                var result = JsonConvert.DeserializeObject<List<Form1.Receiver>>(val.ToString());
-                List<String> summonerId1 = new List<String>();
-                for (int i = 0; i < result.Count; i++)
-                {
-                    //summonerId의 숫자가 너무 클 때 exponential로 자동변환되는 경우가 있음. 따라서 수정을 해 주어야 함
-                    decimal summonerId = Decimal.Parse(result[i].summonerId, System.Globalization.NumberStyles.Float);
-                    //Decimal places 삭제
-                    summonerId = Math.Ceiling(summonerId);
-
-                    //summonerId를 List에 저장
-                    summonerId1.Add(summonerId.ToString());
-                }
-                summonerId1.RemoveAll(x => ((string)x) == mySummonerId); // 내 SummonerId는 List에서 삭제
-
-                //Team 2
-                val = json_["gameData"]["teamTwo"].ToString();
-                result = JsonConvert.DeserializeObject<List<Form1.Receiver>>(val.ToString());
-                List<String> summonerId2 = new List<String>();
-                for (int i = 0; i < result.Count; i++)
-                {
-                    //summonerId의 숫자가 너무 클 때 exponential로 자동변환되는 경우가 있음. 따라서 수정을 해 주어야 함
-                    decimal summonerId = Decimal.Parse(result[i].summonerId, System.Globalization.NumberStyles.Float);
-                    //Decimal places 삭제
-                    summonerId = Math.Ceiling(summonerId);
-
-                    //summonerId를 List에 저장
-                    summonerId2.Add(summonerId.ToString());
-                }
-                summonerId2.RemoveAll(x => ((string)x) == mySummonerId); // 내 SummonerId는 List에서 삭제
-
-                for (int i = 0; i < summonerId1.Count; i++)
-                {
-                    try
-                    {
-                        json = ("{" + $"\"gameId\":{gameId}, \"offenses\":\"NEGATIVE_ATTITUDE,VERBAL_ABUSE,HATE_SPEECH\", \"reportedSummonerId\":{summonerId1[i]}" + "}");
-                        LCU_Request.POST("/lol-end-of-game/v2/player-complaints");
-                    }
-                    catch { }
-                }
-
-                for (int i = 0; i < summonerId2.Count; i++)
-                {
-                    try
-                    {
-                        json = ("{" + $"\"gameId\":{gameId}, \"offenses\":\"NEGATIVE_ATTITUDE,VERBAL_ABUSE,HATE_SPEECH\", \"reportedSummonerId\":{summonerId2[i]}" + "}");
-                        LCU_Request.POST("/lol-end-of-game/v2/player-complaints");
-                    }
-                    catch { }
-                }
-            }
-            catch { }
-            sendClientMessage("Reporting is complete.");
         }
 
         private void materialRaisedButton29_Click(object sender, EventArgs e)
@@ -1008,8 +882,8 @@ namespace LoL_Companion
             try
             {
                 LCU_Request.GET("/lol-summoner/v1/summoners?name=" + materialSingleLineTextField4.Text);
-                dynamic strings = JsonConvert.DeserializeObject(response);
-                summonerId = strings.summonerId;
+                JObject summoners = JObject.Parse(response);
+                summonerId = summoners["summonerId"].ToString();
             }
             catch
             {
@@ -1028,8 +902,8 @@ namespace LoL_Companion
             try
             {
                 LCU_Request.GET("/lol-summoner/v1/summoners?name=" + materialSingleLineTextField4.Text);
-                dynamic strings = JsonConvert.DeserializeObject(response);
-                summonerId = strings.summonerId;
+                JObject summoners = JObject.Parse(response);
+                summonerId = summoners["summonerId"].ToString();
             }
             catch
             {
@@ -1052,14 +926,7 @@ namespace LoL_Companion
             LCU_Request.POST("/lol-lobby/v2/play-again");
         }
 
-        private void materialRaisedButton37_Click(object sender, EventArgs e)
-        {
-            //TOP, JUNGLE, MIDDLE, BOTTOM, UTILITY, FILL, UNSELECTED
-            json = "{ \"firstPreference\":\"JUNGLE\", \"secondPreference\":\"MIDDLE\" }";
-            LCU_Request.PUT("/lol-lobby/v2/lobby/members/localMember/position-preferences");
-        }
-
-        public void terminateLoL()
+        private void terminateLoL()
         {
             string[] processes = {
                 //in-game Client
@@ -1082,7 +949,7 @@ namespace LoL_Companion
                 }
             }
         }
-        void autoLogin(string region)
+        private void autoLogin(string region)
         {
             terminateLoL();
 
@@ -1092,13 +959,15 @@ namespace LoL_Companion
             }
             catch { }
 
-            string CommandLine = string.Empty;
-
-            while (CommandLine == string.Empty)
+            bool isComplete = false;
+            while (!isComplete)
             {
                 try
                 {
+                    string CommandLine = string.Empty;
+
                     var process = Process.GetProcessesByName("RiotClientUx").FirstOrDefault();
+
                     using (var searcher = new ManagementObjectSearcher(
                            $"SELECT CommandLine FROM Win32_Process WHERE ProcessId = {process.Id}"))
                     using (var objects = searcher.Get())
@@ -1116,8 +985,12 @@ namespace LoL_Companion
                     {
                         client.UploadData("https://127.0.0.1:" + Port + "/rso-auth/v1/session/credentials", "PUT", bytes);
                     }
+                    isComplete = true;
                 }
-                catch { }
+                catch
+                {
+                    Thread.Sleep(2000);
+                }
             }
         }
         private void materialRaisedButton30_Click(object sender, EventArgs e)
@@ -1138,20 +1011,22 @@ namespace LoL_Companion
             JArray jsonArray = JArray.Parse(response);
             string id = "";
 
-            for (int i = 0; i < jsonArray.Count(); i++)
+            foreach (JObject item in jsonArray)
             {
-                dynamic stuff = JsonConvert.DeserializeObject(jsonArray[i].ToString());
-                string type = stuff.type;
+                string type = item["type"].ToString();
 
                 if (type == "championSelect")
-                    id = stuff.id;
+                {
+                    id = item["id"].ToString();
+                    break;
+                }
             }
 
-            if (id != "") //If entered champselect and able to chat
+            if (!string.IsNullOrEmpty(id))
             {
                 isChatAvailable = true;
 
-                json = ("{" + $"\"type\":\"chat\", \"isHistorical\":false, \"body\":\"{body}\"" + "}");
+                json = $"{{\"type\":\"chat\", \"isHistorical\":false, \"body\":\"{body}\"}}";
                 LCU_Request.POST($"/lol-chat/v1/conversations/{id}/messages");
             }
         }
@@ -1203,14 +1078,14 @@ namespace LoL_Companion
         public string savePath;
         private void materialCheckBox13_CheckedChanged(object sender, EventArgs e)
         {
-            if (materialCheckBox13.Checked == true)
+            if (materialCheckBox13.Checked)
             {
                 Directory.CreateDirectory("Logs");
 
                 string datetime = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss");
-                savePath = $"Logs/websocket_{datetime}.log";
+                savePath = $"Logs/websocket_{datetime}.json";
 
-                if (materialCheckBox13.Checked == true)
+                if (materialCheckBox13.Checked)
                     Websocket.debug();
             }
             else
@@ -1225,7 +1100,7 @@ namespace LoL_Companion
         //Position Call Out
         private void materialCheckBox12_CheckedChanged(object sender, EventArgs e)
         {
-            if (materialCheckBox12.Checked == true)
+            if (materialCheckBox12.Checked)
             {
                 materialRadioButton5.Enabled = false;
                 materialRadioButton6.Enabled = false;
@@ -1247,7 +1122,7 @@ namespace LoL_Companion
         public string selectedChampionId = "";
         private void materialCheckBox14_CheckedChanged(object sender, EventArgs e)
         {
-            if (materialCheckBox14.Checked == true)
+            if (materialCheckBox14.Checked)
             {
                 selectedChampionId = "";
                 //Find Champion id from List with selected Champion Name
@@ -1291,7 +1166,7 @@ namespace LoL_Companion
         public string selectedBanChampionId = "";
         private void materialCheckBox20_CheckedChanged(object sender, EventArgs e)
         {
-            if (materialCheckBox20.Checked == true)
+            if (materialCheckBox20.Checked)
             {
                 selectedBanChampionId = "";
                 //Find Champion id from List with selected Champion Name
@@ -1331,7 +1206,7 @@ namespace LoL_Companion
 
         private void materialCheckBox15_CheckedChanged(object sender, EventArgs e)
         {
-            if (materialCheckBox15.Checked == true)
+            if (materialCheckBox15.Checked)
                 MessageBox.Show("Enabled.\nTo trigger the event, hover your mouse over the enemy nexus on the minimap and press \".\"(Full Stop)");
         }
 
@@ -1353,8 +1228,8 @@ namespace LoL_Companion
             try
             {
                 LCU_Request.GET("/lol-summoner/v1/current-summoner");
-                dynamic strings = JsonConvert.DeserializeObject(response);
-                string summonerId = strings.summonerId; //"summonerId": 0,
+                JObject current_summoner = JObject.Parse(response);
+                string summonerId = current_summoner["summonerId"].ToString();
                 LCU_Request.GET("/lol-item-sets/v1/item-sets/" + summonerId + "/sets");
                 Clipboard.SetText(response);
             }
@@ -1372,7 +1247,7 @@ namespace LoL_Companion
 
         private void materialCheckBox9_CheckedChanged(object sender, EventArgs e)
         {
-            if (materialCheckBox9.Checked == true)
+            if (materialCheckBox9.Checked)
             {
                 timer3.Enabled = true;
             }
@@ -1390,7 +1265,7 @@ namespace LoL_Companion
 
         private void timer3_Tick(object sender, EventArgs e)
         {
-            if (materialCheckBox9.Checked == true && isinGameRunning == true) //롤 켜지면 강제종료 후 타이머 카운팅 시작
+            if (materialCheckBox9.Checked && isinGameRunning) //롤 켜지면 강제종료 후 타이머 카운팅 시작
             {
                 foreach (var process in Process.GetProcessesByName("League of Legends"))
                 {
@@ -1399,7 +1274,7 @@ namespace LoL_Companion
                 isTimerOnforDragging = true;
             }
 
-            if (isTimerOnforDragging == true)
+            if (isTimerOnforDragging)
             {
                 draggedTime++;
                 textBox1.Visible = true;
@@ -1429,7 +1304,7 @@ namespace LoL_Companion
 
         private void materialCheckBox19_CheckedChanged(object sender, EventArgs e)
         {
-            if (materialCheckBox19.Checked == true)
+            if (materialCheckBox19.Checked)
             {
                 if (materialSingleLineTextField1.Text == "Enter your phrase" || materialSingleLineTextField1.Text == string.Empty)
                 {
@@ -1445,7 +1320,7 @@ namespace LoL_Companion
 
         private void materialCheckBox21_CheckedChanged(object sender, EventArgs e)
         {
-            if (materialCheckBox21.Checked == true)
+            if (materialCheckBox21.Checked)
             {
                 if (materialSingleLineTextField2.Text == "Enter your phrase" || materialSingleLineTextField2.Text == string.Empty)
                 {
@@ -1459,9 +1334,15 @@ namespace LoL_Companion
                 materialSingleLineTextField2.Enabled = true;
         }
 
+        private void materialRaisedButton37_Click(object sender, EventArgs e)
+        {
+            Form1.Object.json = "{" + $"\"championId\":11, \"completed\": true" + "}";
+            LCU_Request.PATCH($"/lol-champ-select/v1/session/actions/1");
+        }
+
         private void materialRaisedButton13_Click(object sender, EventArgs e)
         {
-            if (isinGameRunning == true)
+            if (isinGameRunning)
             {
                 MessageBox.Show("Game is already running");
                 return;
@@ -1516,6 +1397,7 @@ namespace LoL_Companion
             materialCheckBox20.Checked = false;
             materialCheckBox20.Checked = true;
         }
+
         private void materialRaisedButton34_Click(object sender, EventArgs e)
         {
             SetLobbyPreset("Jungle", "Master Yi", "Zac");
@@ -1533,7 +1415,7 @@ namespace LoL_Companion
 
         private void materialRadioButton5_CheckedChanged(object sender, EventArgs e)
         {
-            RadioButton radioButton = (RadioButton)sender;
+            System.Windows.Forms.RadioButton radioButton = (System.Windows.Forms.RadioButton)sender;
 
             string firstPreference = "";
 
@@ -1558,8 +1440,15 @@ namespace LoL_Companion
 
             if (radioButton.Checked)
             {
-                json = "{ \"firstPreference\":\"" + firstPreference + "\", \"secondPreference\":\"FILL\" }";
-                LCU_Request.PUT("/lol-lobby/v2/lobby/members/localMember/position-preferences");
+                try
+                {
+                    if (isClientRunning)
+                    {
+                        json = "{ \"firstPreference\":\"" + firstPreference + "\", \"secondPreference\":\"FILL\" }";
+                        LCU_Request.PUT("/lol-lobby/v2/lobby/members/localMember/position-preferences");
+                    }
+                }
+                catch { }
             }
         }
     }

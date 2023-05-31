@@ -1,17 +1,17 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-using System.Diagnostics;
-using System.Text.RegularExpressions;
-using System.Runtime.InteropServices;
+﻿using HtmlAgilityPack;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using System.Text;
-using WebSocketSharp;
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Linq;
+using System.Runtime.InteropServices;
 using System.Security.Authentication;
+using System.Text;
+using System.Text.RegularExpressions;
+using System.Threading;
 using System.Web;
-using HtmlAgilityPack;
+using WebSocketSharp;
 
 namespace LoL_Companion
 {
@@ -31,7 +31,397 @@ namespace LoL_Companion
             Restore = 9, ShowDefault = 10, ForceMinimized = 11
         };
 
-        public void scrapOPGG()
+        public WebSocket LCU;
+
+        List<string[]> OPGG = new List<string[]>();
+        string savedChampName = "";
+        List<String> calledoutSummonerId = new List<String>();
+
+        public void minimiseClient_conditional()
+        {
+            if (!Form1.Object.isClientFocused)
+            {
+                Thread.Sleep(50);
+                //Minimize League window
+                IntPtr wdwIntPtr = FindWindow(null, "League of Legends");
+                ShowWindow(wdwIntPtr, ShowWindowEnum.Minimize);
+            }
+        }
+        bool chat_in_finalization = false;
+
+        public void connectToLCU()
+        {
+            LCU = new WebSocket($"wss://127.0.0.1:{Form1.Object.riotPort}/", "wamp");
+            LCU.SetCredentials("riot", Form1.Object.riotPass, true);
+            LCU.SslConfiguration.EnabledSslProtocols = SslProtocols.Tls12;
+            LCU.SslConfiguration.ServerCertificateValidationCallback = (send, certificate, chain, sslPolicyErrors) => true;
+            LCU.OnMessage += (s, e) =>
+            {
+                if (!e.IsText)
+                    return;
+
+                var eventArray = JArray.Parse(e.Data);
+                var eventNumber = eventArray[0].ToObject<int>();
+                if (eventNumber != 8)
+                    return;
+
+                var leagueEvent = eventArray[2];
+                JObject json = JObject.Parse(leagueEvent.ToString());
+                var uri = json["uri"].ToString();
+                var data = json["data"].ToString();
+
+                List<string> eventNames = new List<string>
+                {
+                    "OnJsonApiEvent_lol-champ-select_v1_session",
+                    "OnJsonApiEvent_lol-champ-select_v1_summoners",
+                };
+
+                // Game phase Behaviour
+                if (uri.Contains("/lol-gameflow/v1/gameflow-phase"))
+                {
+                    if (data == "None")
+                    {
+                        //로비로 돌아올 경우 List와 Variable 초기화
+                        foreach (string eventName in eventNames)
+                        {
+                            string wsMessage = $"[6, \"{eventName}\"]";
+                            LCU.Send(wsMessage);
+                        }
+
+                        Console.WriteLine("List Cleared");
+                        OPGG.Clear();
+                        calledoutSummonerId.Clear();
+                        Form1.Object.isChatAvailable = false;
+                        chat_in_finalization = false;
+
+                        return;
+                    }
+
+                    // Get QueueId
+                    LCU_Request.GET("/lol-gameflow/v1/gameflow-metadata/player-status");
+                    JObject player_status = JObject.Parse(Form1.Object.response);
+                    string queueId = player_status["currentLobbyStatus"]["queueId"].ToString();
+
+                    if (data == "ReadyCheck") //큐가 잡히면 자동수락
+                    {
+                        if (Form1.Object.materialCheckBox8.Checked)
+                        {
+                            minimiseClient_conditional();
+                            Form1.Object.json = "0";
+                            LCU_Request.POST("/lol-matchmaking/v1/ready-check/accept");
+                        }
+                    }
+
+                    if (data == "ChampSelect")
+                    {
+                        foreach (string eventName in eventNames)
+                        {
+                            string wsMessage = $"[5, \"{eventName}\"]";
+                            LCU.Send(wsMessage);
+                        }
+
+                        if (queueId == "430") // Normal Game Only (430)
+                        {
+                            //Champion Instant Lock (Normal)
+                            if (Form1.Object.materialCheckBox14.Checked)
+                                pickChampion(false);
+
+                            //Position Callout
+                            if (Form1.Object.materialCheckBox12.Checked)
+                            {
+                                string position = "";
+
+                                if (Form1.Object.materialRadioButton5.Checked)
+                                    position = "상단(탑) | Top | 上单";
+                                if (Form1.Object.materialRadioButton6.Checked)
+                                    position = "정글 | Jungle | 打野";
+                                if (Form1.Object.materialRadioButton7.Checked)
+                                    position = "미드 | Mid | 中单";
+                                if (Form1.Object.materialRadioButton8.Checked)
+                                    position = "봇(원딜) | Bot | ADC";
+                                if (Form1.Object.materialRadioButton9.Checked)
+                                    position = "서포터 | Support | 辅助";
+
+                                LCU_Request.GET("/lol-chat/v1/conversations");
+                                JArray jsonArray = JArray.Parse(Form1.Object.response);
+
+                                while (!Form1.Object.isChatAvailable)
+                                {
+                                    for (int i = 0; i < 5; i++)
+                                    {
+                                        Form1.Object.sendChatinChampSelect(position);
+                                    }
+                                }
+                                //Upon completing position callout, reset variable
+                                Form1.Object.isChatAvailable = false;
+                            }
+                        }
+
+                        // Champion Intent
+                        if (Form1.Object.materialCheckBox14.Checked && (queueId == "400" || queueId == "420" || queueId == "440"))
+                            pickChampion(true);
+
+                        if (queueId == "440") // Solo, Flex Ranked(420, 440) // solo is excluded due to anonymity patch
+                        {
+                            if (Form1.Object.materialCheckBox4.Checked)
+                                multiSearch();
+
+                            if (Form1.Object.materialCheckBox11.Checked)
+                                scrapOPGG();
+                        }
+                    }
+
+                    //Automatic Report // may not work.. look into it later
+                    if (data == "EndOfGame" && Form1.Object.materialCheckBox17.Checked)
+                    {
+                        if (queueId != "-1") //Exclude Practice Tool
+                            Report();
+                    }
+                }
+
+                // Finalization Chat
+                if (uri.Contains("/lol-champ-select/v1/session"))
+                {
+                    // Get phase
+                    LCU_Request.GET("/lol-champ-select/v1/session");
+                    JObject session = JObject.Parse(Form1.Object.response);
+                    string phase = session["timer"]["phase"].ToString();
+
+                    if (phase == "FINALIZATION" && !chat_in_finalization && Form1.Object.materialCheckBox21.Checked)
+                    {
+                        Form1.Object.sendChatinChampSelect(Form1.Object.materialSingleLineTextField2.Text);
+                        chat_in_finalization = true;
+                    }
+                }
+
+                // Ban, Pick, OPGG for Ranked, and ARAM
+                if (uri.Contains("/lol-champ-select/v1/summoners/"))
+                {
+                    // Get QueueId
+                    LCU_Request.GET("/lol-gameflow/v1/gameflow-metadata/player-status");
+                    JObject player_status = JObject.Parse(Form1.Object.response);
+                    string queueId = player_status["currentLobbyStatus"]["queueId"].ToString();
+
+                    //Find localPlayerCellId
+                    LCU_Request.GET("/lol-champ-select/v1/session");
+                    JObject session = JObject.Parse(Form1.Object.response);
+                    string localPlayerCellId = session["localPlayerCellId"].ToString();
+
+                    string activeActionType = json["data"]["activeActionType"].ToString();
+                    bool isSelf = (bool)json["data"]["isSelf"];
+                    string championIconStyle = json["data"]["championIconStyle"].ToString();
+                    string skinId = json["data"]["skinId"].ToString();
+                    bool isActingNow = (bool)json["data"]["isActingNow"];
+                    bool isDonePicking = (bool)json["data"]["isDonePicking"];
+                    bool isOnPlayersTeam = (bool)json["data"]["isOnPlayersTeam"];
+                    string summonerId = json["data"]["summonerId"].ToString();
+
+                    if (isSelf)
+                    {
+                        //Champion Ban
+                        if (Form1.Object.materialCheckBox20.Checked && activeActionType == "ban")
+                        {
+                            if (Form1.Object.materialCheckBox19.Checked)
+                                Form1.Object.sendChatinChampSelect(Form1.Object.materialSingleLineTextField1.Text);
+
+                            //Ban Champion
+                            Form1.Object.json = "{" + $"\"championId\":{Form1.Object.selectedBanChampionId}, \"completed\": true" + "}";
+                            LCU_Request.PATCH($"/lol-champ-select/v1/session/actions/{localPlayerCellId}");
+
+                            minimiseClient_conditional();
+                        }
+
+                        //Champion Pick (Draft)
+                        if (Form1.Object.materialCheckBox14.Checked && (queueId == "400" || queueId == "420" || queueId == "440"))
+                            if (activeActionType == "pick" && skinId == "0" && isActingNow && !isDonePicking)
+                                pickChampion(true);
+                    }
+
+                    if ((Form1.Object.materialCheckBox11.Checked || Form1.Object.materialCheckBox18.Checked) && isSelf)
+                    {
+                        // Get my championName
+                        int pFrom = championIconStyle.IndexOf("champion-icons/") + "champion-icons/".Length;
+                        int pTo = championIconStyle.LastIndexOf(".png");
+                        if (pTo == -1)
+                            return;
+                        string championId = championIconStyle.Substring(pFrom, pTo - pFrom);
+                        string championName = ""; //1회성 Thread이므로 List를 쓰지 않음
+                        for (int i = 0; i < Form1.Object.Champion.Count(); i++)
+                            if (Form1.Object.Champion[i][1] == championId)
+                                championName = Form1.Object.Champion[i][0];
+
+
+                        if (Form1.Object.materialCheckBox18.Checked && queueId == "450") // ARAM
+                        {
+                            if (championName == savedChampName) //중복실행 방지
+                                return;
+                            savedChampName = championName;
+                            string str = Regex.Replace(championName, "[^A-Za-z]", "");
+                            if (str == "NunuWillump")
+                                str = "Nunu";
+                            Process.Start($"https://poro.gg/champions/{str}/aram");
+                        }
+
+                        if (Form1.Object.materialCheckBox11.Checked && queueId == "440")
+                        {
+                            if (isDonePicking && !calledoutSummonerId.Contains(summonerId) && championName != "" && isOnPlayersTeam)
+                            {
+                                // Get summonerName
+                                LCU_Request.GET("/lol-summoner/v1/summoners/" + summonerId);
+                                JObject summoners = JObject.Parse(Form1.Object.response);
+                                string summonerName = summoners["displayName"].ToString();
+
+                                bool foundChampion = false;
+                                for (int i = 0; i < OPGG.Count(); i++)
+                                {
+                                    if (OPGG[i][1].Contains(championName) && OPGG[i][0] == summonerId)
+                                    {
+                                        Form1.Object.sendChatinChampSelect($"{summonerName} | {championName} | {OPGG[i][2]}판 | 승률 {OPGG[i][5]}%");
+                                        calledoutSummonerId.Add(summonerId);
+                                        foundChampion = true;
+                                        break;
+                                    }
+                                }
+
+                                if (!foundChampion)
+                                {
+                                    Form1.Object.sendChatinChampSelect($"{summonerName} | {championName} | 플레이 기록 없음");
+                                    calledoutSummonerId.Add(summonerId);
+                                }
+                            }
+                        }
+                    }
+                }
+            };
+            LCU.Connect();
+            LCU.Send($"[5, \"OnJsonApiEvent_lol-gameflow_v1_gameflow-phase\"]");
+            Form1.Object.isConnectedtoWebsocket = true;
+        }
+
+        public WebSocket LCU_Debug;
+
+        private void pickChampion(bool isRanked)
+        {
+            //Find my CellId (pick order)
+            LCU_Request.GET("/lol-champ-select/v1/session");
+            JObject session = JObject.Parse(Form1.Object.response);
+            string localPlayerCellId = session["localPlayerCellId"].ToString();
+
+            string id_ = "";
+            switch (localPlayerCellId)
+            {
+                case "0": id_ = "10"; break;
+                case "5": id_ = "11"; break;
+                case "6": id_ = "12"; break;
+                case "1": id_ = "13"; break;
+                case "2": id_ = "14"; break;
+                case "7": id_ = "15"; break;
+                case "8": id_ = "16"; break;
+                case "3": id_ = "17"; break;
+                case "4": id_ = "18"; break;
+                case "9": id_ = "19"; break;
+            }
+
+            if (isRanked)
+            {
+                Form1.Object.json = "{" + $"\"championId\":{Form1.Object.selectedChampionId}, \"completed\": true" + "}";
+                LCU_Request.PATCH($"/lol-champ-select/v1/session/actions/{id_}");
+            }
+            else
+            {
+                if (Form1.Object.materialCheckBox16.Checked) // lock-in
+                    Form1.Object.json = "{" + $"\"championId\":{Form1.Object.selectedChampionId}, \"completed\": true" + "}";
+                else // no lock-in
+                    Form1.Object.json = "{" + $"\"championId\":{Form1.Object.selectedChampionId}, \"completed\": false" + "}";
+                LCU_Request.PATCH($"/lol-champ-select/v1/session/actions/{localPlayerCellId}");
+            }
+            minimiseClient_conditional();
+        }
+
+        public void debug()
+        {
+            LCU_Debug = new WebSocket($"wss://127.0.0.1:{Form1.Object.riotPort}/", "wamp");
+            LCU_Debug.SetCredentials("riot", Form1.Object.riotPass, true);
+            LCU_Debug.SslConfiguration.EnabledSslProtocols = SslProtocols.Tls12;
+            LCU_Debug.SslConfiguration.ServerCertificateValidationCallback = (send, certificate, chain, sslPolicyErrors) => true;
+            LCU_Debug.OnMessage += (s, e) =>
+            {
+                if (e.IsText)
+                {
+                    var eventArray = JArray.Parse(e.Data);
+                    System.IO.File.AppendAllText(Form1.Object.savePath, eventArray + "\n\n\n", Encoding.GetEncoding("UTF-8"));
+                }
+            };
+            LCU_Debug.Connect();
+            List<string> eventNames = new List<string>
+            {
+                "OnJsonApiEvent_lol-champ-select_v1_session",
+                "OnJsonApiEvent_lol-champ-select_v1_summoners",
+                "OnJsonApiEvent_lol-gameflow_v1_gameflow-phase",
+            };
+            foreach (string eventName in eventNames)
+            {
+                string wsMessage = $"[5, \"{eventName}\"]";
+                LCU_Debug.Send(wsMessage);
+            }
+        }
+
+        ///////////////
+        public void Report()
+        {
+            try
+            {
+                Form1.Object.sendClientMessage("Reporting is in progress.");
+
+                // Get current summoner ID
+                LCU_Request.GET("/lol-summoner/v1/current-summoner");
+                JObject current_summoner = JObject.Parse(Form1.Object.response);
+                string mySummonerId = current_summoner["summonerId"].ToString();
+
+                // Get session and game ID
+                LCU_Request.GET("/lol-gameflow/v1/session");
+                JObject json_ = (JObject)JsonConvert.DeserializeObject(Form1.Object.response);
+                var gameId = json_["gameData"]["gameId"].ToString();
+
+                // Gather summoner IDs from both teams
+                var teamOne = json_["gameData"]["teamOne"].ToString();
+                var teamTwo = json_["gameData"]["teamTwo"].ToString();
+
+                var summonerId1 = GetSummonerIds(teamOne, mySummonerId);
+                var summonerId2 = GetSummonerIds(teamTwo, mySummonerId);
+
+                // Report summoner IDs
+                ReportSummonerIds(gameId, summonerId1);
+                ReportSummonerIds(gameId, summonerId2);
+            }
+            catch { }
+
+            Form1.Object.sendClientMessage("Reporting is complete.");
+        }
+
+        private List<string> GetSummonerIds(string teamData, string mySummonerId)
+        {
+            var result = JsonConvert.DeserializeObject<List<Form1.Receiver>>(teamData);
+            var summonerIds = result.Select(r => r.summonerId.ToString()).ToList();
+            summonerIds.RemoveAll(id => id == mySummonerId);
+            return summonerIds;
+        }
+
+        private void ReportSummonerIds(string gameId, List<string> summonerIds)
+        {
+            foreach (string summonerId in summonerIds)
+            {
+                try
+                {
+                    Form1.Object.json = $"{{\"gameId\":{gameId}, \"offenses\":\"NEGATIVE_ATTITUDE,VERBAL_ABUSE,HATE_SPEECH\", \"reportedSummonerId\":{summonerId}}}";
+                    LCU_Request.POST("/lol-end-of-game/v2/player-complaints");
+                }
+                catch { }
+            }
+        }
+
+        ///////////////
+        private void scrapOPGG()
         {
             //summonerID를 가져옴
             LCU_Request.GET("/lol-champ-select/v1/session");
@@ -51,8 +441,8 @@ namespace LoL_Companion
             {
                 //summonerName을 가져옴
                 LCU_Request.GET("/lol-summoner/v1/summoners/" + result[i].summonerId);
-                dynamic strings = JsonConvert.DeserializeObject(Form1.Object.response);
-                string summonerName = strings.displayName;
+                JObject summoners = JObject.Parse(Form1.Object.response);
+                string summonerName = summoners["displayName"].ToString();
 
                 var web = new HtmlWeb();
                 var doc = web.Load($"https://www.op.gg/summoner/champions/userName={summonerName}");
@@ -131,10 +521,9 @@ namespace LoL_Companion
                     }
                 }
             }
-            //Form1.Object.sendChatinChampSelect("Initialization Successful - Powered by LoL Companion");
         }
 
-        public void multiSearch()
+        private void multiSearch()
         {
             //summonerID를 가져옴
             LCU_Request.GET("/lol-champ-select/v1/session");
@@ -146,8 +535,8 @@ namespace LoL_Companion
             for (int i = 0; i < result.Count; i++)
             {
                 LCU_Request.GET("/lol-summoner/v1/summoners/" + result[i].summonerId);
-                dynamic strings = JsonConvert.DeserializeObject(Form1.Object.response);
-                string summonerName = strings.displayName;
+                JObject summoners = JObject.Parse(Form1.Object.response);
+                string summonerName = summoners["displayName"].ToString();
                 summonerNames.Add(summonerName);
             }
             string summonerNamesCombined = "";
@@ -160,359 +549,13 @@ namespace LoL_Companion
 
             //서버확인
             LCU_Request.GET("/riotclient/region-locale");
-            dynamic strings2 = JsonConvert.DeserializeObject(Form1.Object.response);
-            string region = strings2.webRegion; //"webRegion": "oce"
+            JObject region_locale = JObject.Parse(Form1.Object.response);
+            string region = region_locale["webRegion"].ToString();
 
             //주소접속
             string porofessorURL = "https://porofessor.gg/pregame/" + region + "/" + summonerNamesCombined + "/ranked-only";
             Process.Start(porofessorURL);
         }
 
-        ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-        public WebSocket LCU;
-
-        public List<string[]> OPGG = new List<string[]>();
-        string savedChampName = "";
-        public List<String> calledoutSummonerId = new List<String>();
-
-        public void minimiseClient_conditional()
-        {
-            if (Form1.Object.isClientFocused == false)
-            {
-                Thread.Sleep(50);
-                //Minimize League window
-                IntPtr wdwIntPtr = FindWindow(null, "League of Legends");
-                ShowWindow(wdwIntPtr, ShowWindowEnum.Minimize);
-            }
-        }
-
-        bool chat_in_finalization = false;
-
-        public void connectToLCU()
-        {
-            LCU_Request.getriotCredentials(null);
-
-            LCU = new WebSocket($"wss://127.0.0.1:{Form1.Object.riotPort}/", "wamp");
-            LCU.SetCredentials("riot", Form1.Object.riotPass, true);
-            LCU.SslConfiguration.EnabledSslProtocols = SslProtocols.Tls12;
-            LCU.SslConfiguration.ServerCertificateValidationCallback = (send, certificate, chain, sslPolicyErrors) => true;
-            LCU.OnMessage += (s, e) =>
-            {
-                if (!e.IsText)
-                    return;
-
-                var eventArray = JArray.Parse(e.Data);
-                var eventNumber = eventArray[0].ToObject<int>();
-                if (eventNumber != 8)
-                    return;
-
-                var leagueEvent = eventArray[2];
-                JObject json = JObject.Parse(leagueEvent.ToString());
-                var uri = json["uri"].ToString();
-                var data = json["data"].ToString();
-
-                if (uri.Contains("/lol-champ-select/v1/session"))
-                {
-                    // Get phase
-                    LCU_Request.GET("/lol-champ-select/v1/session");
-                    JObject json_ = JObject.Parse(Form1.Object.response);
-                    string phase = json_["timer"]["phase"].ToString();
-
-                    if (phase == "FINALIZATION" && chat_in_finalization == false && Form1.Object.materialCheckBox21.Checked == true)
-                    {
-                        Form1.Object.sendChatinChampSelect(Form1.Object.materialSingleLineTextField2.Text);
-                        chat_in_finalization = true;
-                    }
-                }
-
-                //Lobby Behaviour (Ban, Pick for Ranked)
-                if (uri.Contains("/lol-champ-select/v1/summoners/"))
-                {
-                    //Find localPlayerCellId
-                    LCU_Request.GET("/lol-champ-select/v1/session");
-                    dynamic strings = JObject.Parse(Form1.Object.response);
-                    string localPlayerCellId = strings.localPlayerCellId;
-
-                    var activeActionType = json["data"]["activeActionType"].ToString();
-                    var isSelf = json["data"]["isSelf"].ToString();
-                    var championIconStyle = json["data"]["championIconStyle"].ToString();
-                    var isActingNow = json["data"]["isActingNow"].ToString();
-                    var isDonePicking = json["data"]["isDonePicking"].ToString();
-
-                    if (isSelf == "True")
-                    {
-                        //Champion Ban
-                        if (Form1.Object.materialCheckBox20.Checked == true && activeActionType == "ban")
-                        {
-                            if (Form1.Object.materialCheckBox19.Checked == true)
-                                Form1.Object.sendChatinChampSelect(Form1.Object.materialSingleLineTextField1.Text);
-
-                            //Ban Champion
-                            Form1.Object.json = "{" + $"\"championId\":{Form1.Object.selectedBanChampionId}, \"completed\": true" + "}";
-                            LCU_Request.PATCH($"/lol-champ-select/v1/session/actions/{localPlayerCellId}");
-
-                            minimiseClient_conditional();
-                        }
-
-
-                        // Get QueueId
-                        LCU_Request.GET("/lol-gameflow/v1/gameflow-metadata/player-status");
-                        JObject json_ = JObject.Parse(Form1.Object.response);
-                        string queueId = json_["currentLobbyStatus"]["queueId"].ToString();
-                        //Champion Pick (Ranked)
-                        if (Form1.Object.materialCheckBox14.Checked == true && queueId == "420" && queueId == "440")
-                        {
-                            if (activeActionType == "pick" && championIconStyle == "display:none" && isActingNow == "True" && isDonePicking == "False")
-                            {
-                                string id_ = "";
-                                if (localPlayerCellId == "0") { id_ = "10"; }
-                                if (localPlayerCellId == "5") { id_ = "11"; }
-                                if (localPlayerCellId == "6") { id_ = "12"; }
-                                if (localPlayerCellId == "1") { id_ = "13"; }
-                                if (localPlayerCellId == "2") { id_ = "14"; }
-                                if (localPlayerCellId == "7") { id_ = "15"; }
-                                if (localPlayerCellId == "8") { id_ = "16"; }
-                                if (localPlayerCellId == "3") { id_ = "17"; }
-                                if (localPlayerCellId == "4") { id_ = "18"; }
-                                if (localPlayerCellId == "9") { id_ = "19"; }
-
-                                //Select Champion(lock in)
-                                Form1.Object.json = "{" + $"\"championId\":{Form1.Object.selectedChampionId}, \"completed\": true" + "}";
-                                LCU_Request.PATCH($"/lol-champ-select/v1/session/actions/{id_}");
-
-                                minimiseClient_conditional();
-                            }
-                        }
-                    }
-                }
-
-                if (uri.Contains("/lol-gameflow/v1/gameflow-phase"))
-                {
-                    if (data == "ReadyCheck") //큐가 잡히면 자동수락
-                    {
-                        //로비로 돌아와서 다시 큐가 잡힌 경우 List와 Variable 초기화
-                        Console.WriteLine("List Cleared");
-                        OPGG.Clear();
-                        calledoutSummonerId.Clear();
-                        Form1.Object.isChatAvailable = false;
-                        chat_in_finalization = false;
-
-                        if (Form1.Object.materialCheckBox8.Checked == true)
-                        {
-                            minimiseClient_conditional();
-                            Form1.Object.json = "0";
-                            LCU_Request.POST("/lol-matchmaking/v1/ready-check/accept");
-                        }
-                    }
-
-                    if (data == "ChampSelect")
-                    {
-                        // Get QueueId
-                        LCU_Request.GET("/lol-gameflow/v1/gameflow-metadata/player-status");
-                        JObject json_ = JObject.Parse(Form1.Object.response);
-                        string queueId = json_["currentLobbyStatus"]["queueId"].ToString();
-
-                        if (queueId == "430") // Normal Game Only (430)
-                        {
-                            //Position Callout
-                            if (Form1.Object.materialCheckBox12.Checked == true)
-                            {
-                                string position = "";
-
-                                if (Form1.Object.materialRadioButton5.Checked == true)
-                                    position = "상단(탑) | Top | 上单";
-                                if (Form1.Object.materialRadioButton6.Checked == true)
-                                    position = "정글 | Jungle | 打野";
-                                if (Form1.Object.materialRadioButton7.Checked == true)
-                                    position = "미드 | Mid | 中单";
-                                if (Form1.Object.materialRadioButton8.Checked == true)
-                                    position = "봇(원딜) | Bot | ADC";
-                                if (Form1.Object.materialRadioButton9.Checked == true)
-                                    position = "서포터 | Support | 辅助";
-
-                                LCU_Request.GET("/lol-chat/v1/conversations");
-                                JArray jsonArray = JArray.Parse(Form1.Object.response);
-
-                                while (Form1.Object.isChatAvailable == false)
-                                //while (i == 5) 하면 안되는 이유는 i가 5가 될 때 까지 반복하는 것이 아니라 i가 5일 때에만 반복하게 되는 것이다.
-                                //따라서 while (i < 5)로 수정하여 i가 5보다 적을 동안만 반복하게 해야 한다.
-                                //해당 코드에서는 isChatAvailable이 false일동안 계속 반복시켜 true로 변하면 멈춘다.
-                                {
-                                    for (int i = 0; i < 7; i++)
-                                    {
-                                        Form1.Object.sendChatinChampSelect(position);
-                                    }
-                                }
-                                //Upon completing position callout, reset variable
-                                Form1.Object.isChatAvailable = false;
-                            }
-
-                            //Champion Instant Lock (Normal)
-                            if (Form1.Object.materialCheckBox14.Checked == true)
-                            {
-                                //Find my CellId (pick order)
-                                LCU_Request.GET("/lol-champ-select/v1/session");
-                                dynamic strings = JsonConvert.DeserializeObject(Form1.Object.response);
-                                string localPlayerCellId = strings.localPlayerCellId;
-
-                                //Select Champion (lock in)
-                                if (Form1.Object.materialCheckBox16.Checked == true)
-                                    Form1.Object.json = "{" + $"\"championId\":{Form1.Object.selectedChampionId}, \"completed\": true" + "}";
-                                else //no lock in
-                                    Form1.Object.json = "{" + $"\"championId\":{Form1.Object.selectedChampionId}, \"completed\": false" + "}";
-
-                                LCU_Request.PATCH($"/lol-champ-select/v1/session/actions/{localPlayerCellId}");
-                            }
-                        }
-
-                        if (queueId == "440") // Solo, Flex Ranked(420, 440) // solo is excluded due to anonymity
-                        {
-                            if (Form1.Object.materialCheckBox4.Checked == true)
-                                multiSearch();
-
-                            if (Form1.Object.materialCheckBox11.Checked == true)
-                                scrapOPGG();
-                        }
-                    }
-
-                    //Automatic Report
-                    if (data == "EndOfGame" && Form1.Object.materialCheckBox17.Checked == true)
-                    {
-                        // Get QueueId
-                        LCU_Request.GET("/lol-gameflow/v1/gameflow-metadata/player-status");
-                        JObject json_ = JObject.Parse(Form1.Object.response);
-                        string queueId = json_["currentLobbyStatus"]["queueId"].ToString();
-
-                        if (queueId != "-1") //Exclude Practice Tool
-                            Form1.Object.Report();
-                    }
-                }
-
-                if (uri.Contains("/lol-champ-select/v1/summoners/"))
-                {
-                    // Get QueueId
-                    LCU_Request.GET("/lol-gameflow/v1/gameflow-metadata/player-status");
-                    JObject json_ = JObject.Parse(Form1.Object.response);
-                    string queueId = json_["currentLobbyStatus"]["queueId"].ToString();
-
-                    dynamic stuff = JsonConvert.DeserializeObject(data.ToString());
-                    bool isSelf = false;
-                    if (queueId == "450" && Form1.Object.materialCheckBox18.Checked == true) // ARAM
-                    {
-                        isSelf = stuff.isSelf;
-                    }
-
-                    if (Form1.Object.materialCheckBox11.Checked == true || isSelf == true)
-                    {
-                        //Champion name works differently upon Language Settings
-
-                        bool isDonePicking = stuff.isDonePicking;
-
-                        if (isDonePicking == true || isSelf == true) // 랭크용 || ARAM용
-                        {
-                            string championIconStyle = stuff.championIconStyle;
-                            bool isOnPlayersTeam = stuff.isOnPlayersTeam;
-                            string summonerId = stuff.summonerId;
-
-                            int pFrom = championIconStyle.IndexOf("champion-icons/") + "champion-icons/".Length;
-                            int pTo = championIconStyle.LastIndexOf(".png");
-                            string championId = championIconStyle.Substring(pFrom, pTo - pFrom);
-                            string championName = ""; //1회성 Thread이므로 List를 쓰지 않음
-                            for (int i = 0; i < Form1.Object.Champion.Count(); i++)
-                            {
-                                if (Form1.Object.Champion[i][1] == championId)
-                                    championName = Form1.Object.Champion[i][0];
-                            }
-
-                            //Console.WriteLine($"summonerId: {summonerId} | championName: {championName} | isDonePicking: {isDonePicking} | isOnPlayersTeam: {isOnPlayersTeam}");
-
-                            if (queueId == "450") // ARAM
-                            {
-                                if (championName == savedChampName) //중복실행 방지
-                                    return;
-                                savedChampName = championName;
-                                string str = Regex.Replace(championName, "[^A-Za-z]", "");
-                                if (str == "NunuWillump")
-                                    str = "Nunu";
-                                Process.Start($"https://poro.gg/champions/{str}/aram");
-                            }
-
-                            if (queueId == "420" || queueId == "440") // Solo, Flex Ranked(420, 440)
-                            {
-                                bool skipSearch = false;
-                                for (int i = 0; i < calledoutSummonerId.Count(); i++)
-                                {
-                                    if (calledoutSummonerId[i] == summonerId)
-                                    {
-                                        skipSearch = true;
-                                    }
-                                }
-
-                                if (skipSearch == false && championName != "" && isDonePicking == true && isOnPlayersTeam == true)
-                                {
-                                    //summonerName을 가져옴
-                                    LCU_Request.GET("/lol-summoner/v1/summoners/" + summonerId);
-                                    dynamic strings = JsonConvert.DeserializeObject(Form1.Object.response);
-                                    string summonerName = strings.displayName;
-
-                                    for (int i = 0; i < OPGG.Count(); i++) //OPGG 열(column) 길이동안 반복
-                                    {
-                                        if (OPGG[i][1].Contains(championName))
-                                        {
-                                            if (OPGG[i][0] == summonerId)
-                                            {
-                                                Form1.Object.sendChatinChampSelect($"{summonerName} | {championName} | {OPGG[i][2]}판 | 승률 {OPGG[i][5]}%");
-                                                calledoutSummonerId.Add(summonerId);
-                                            }
-                                        }
-                                    }
-
-                                    //플레이기록없음을 띄우기 위해서 불렸는지 체크를 한번 더 해야함.
-                                    for (int i = 0; i < calledoutSummonerId.Count(); i++)
-                                    {
-                                        if (calledoutSummonerId[i] == summonerId)
-                                        {
-                                            skipSearch = true;
-                                        }
-                                    }
-
-                                    if (skipSearch == false)
-                                    {
-                                        Form1.Object.sendChatinChampSelect($"{summonerName} | {championName} | 플레이 기록 없음");
-                                        calledoutSummonerId.Add(summonerId);
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            };
-            LCU.Connect();
-            LCU.Send("[5, \"OnJsonApiEvent\"]");
-
-            Form1.Object.isConnectedtoWebsocket = true;
-        }
-
-        public WebSocket LCU_Debug;
-        public void debug()
-        {
-            LCU_Request.getriotCredentials(null);
-
-            LCU_Debug = new WebSocket($"wss://127.0.0.1:{Form1.Object.riotPort}/", "wamp");
-            LCU_Debug.SetCredentials("riot", Form1.Object.riotPass, true);
-            LCU_Debug.SslConfiguration.EnabledSslProtocols = SslProtocols.Tls12;
-            LCU_Debug.SslConfiguration.ServerCertificateValidationCallback = (send, certificate, chain, sslPolicyErrors) => true;
-            LCU_Debug.OnMessage += (s, e) =>
-            {
-                if (e.IsText)
-                {
-                    var eventArray = JArray.Parse(e.Data);
-                    System.IO.File.AppendAllText(Form1.Object.savePath, eventArray + "\n\n\n", Encoding.GetEncoding("UTF-8"));
-                }
-            };
-            LCU_Debug.Connect();
-            LCU_Debug.Send("[5, \"OnJsonApiEvent\"]");
-        }
     }
 }

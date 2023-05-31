@@ -1,5 +1,4 @@
-﻿using MaterialSkin.Controls;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -12,16 +11,22 @@ namespace LoL_Companion
         public void loadCredentials()
         {
             if (!File.Exists(@"credentials.conf"))
-                return;
-
+            {
+                using (StreamWriter writer = new StreamWriter(@"credentials.conf"))
+                {
+                    writer.WriteLine("username1,username2,username3");
+                    writer.WriteLine("password");
+                    writer.Close();
+                }
+            }
             using (StreamReader reader = new StreamReader(@"credentials.conf"))
             {
                 Form1.Object.leagueID = new List<string>(reader.ReadLine().Split(','));
                 Form1.Object.leaguePass = reader.ReadLine();
                 reader.Close();
             }
-            
         }
+
         public void saveStates()
         {
             using (StreamWriter writer = new StreamWriter(@"settings.ini"))
@@ -91,8 +96,7 @@ namespace LoL_Companion
         {
             if (!File.Exists(@"settings.ini"))
             {
-                Form1.Object.isNewUser = true;
-                MessageBox.Show("Thanks for using LoL Companion !\n\nDISCLAIMER\n1. Multi Search, Type W/R in Chat, and 50 FOV in Replay do not work on Non-Riot Server (PBE, China, Garena).\n2. Some functions featured by this app may not work or be expunged in the future.\n3. The developer does not take any form of accountability for using the app. USE IT AT YOUR OWN RISK !\n\nThis message only appears once.\n\nFor any inquiries, please send me an email to mail@xhs.kr", "Welcome", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show("Thanks for using LoL Companion !\n\nDISCLAIMER\n1. Visit credentials.conf file to change the details with yours.\n2. Multi Search, Type W/R in Chat, and 50 FOV in Replay do not work on Non-Riot Server (PBE, China, Garena).\n3. Some functions featured by this app may not work or be expunged in the future.\n4. The developer does not take any form of accountability for using the app. USE IT AT YOUR OWN RISK !\n\nThis message only appears once.\n\nFor any inquiries, please send me an email to mail@xhs.kr", "Welcome", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 saveStates();
             }
             else
