@@ -140,11 +140,9 @@ namespace LoL_Companion
         public bool isinGameRunning = false;
         public bool isClientFocused = false;
         bool isinGameFocused = false;
-        bool isInGameTimeReceived = false;
 
         bool isChatMuted = false;
-        bool isReplayChecked = false;
-        bool isReplay = false;
+        bool isReplay = true;
         bool isReplayDataSent = false;
         int afkTime = 0;
         bool isAutomaticfAfkTriggered = false;
@@ -218,6 +216,7 @@ namespace LoL_Companion
         private void sendAfkWarning()
         {
             this.TopMost = true;
+
             this.WindowState = FormWindowState.Normal;
             System.Media.SystemSounds.Beep.Play();
             label1.Visible = true;
@@ -225,7 +224,7 @@ namespace LoL_Companion
 
         private void gHook_KeyDown(object sender, KeyEventArgs e)
         {
-            if (isinGameRunning && isinGameFocused && isInGameTimeReceived)
+            if (isinGameRunning && isinGameFocused && ingameTime > 1)
             {
                 // Spamming
                 if (e.KeyValue.ToString() == "222" && isSpamOn) // ' key 
@@ -381,8 +380,8 @@ namespace LoL_Companion
 
 
             if (isClientRunning)
-                if (!isConnectedtoWebsocket)
-                {
+            {
+                if (!isConnectedtoWebsocket && isReplay)
                     try
                     {
                         RetrieveAccountInfo();
@@ -390,9 +389,8 @@ namespace LoL_Companion
                         isConnectedtoWebsocket = true;
                     }
                     catch { }
-                }
-
-            if (!isClientRunning)
+            }
+            else
                 isConnectedtoWebsocket = false;
 
             if (isinGameRunning)
@@ -465,7 +463,7 @@ namespace LoL_Companion
                 materialCheckBox11.Checked = false;
                 materialCheckBox5.Checked = false;
 
-                region = "No    n-Riot Server (PBE, China, Garena)";
+                region = "Non-Riot Server (PBE, China, Garena)";
             }
 
             materialLabel14.Text = $"Summoner's Name: {summonerName}\nAccount ID: {accountId}\nE-mail Address: {email}\nRegion: {region}";
@@ -478,86 +476,76 @@ namespace LoL_Companion
 
         private void HandleInGame()
         {
-            if (isInGameTimeReceived)
+            if (ingameTime > 1 && isReplay)
             {
                 UpdateInGameTime();
-            }
-
-            //관전상태인지 확인
-            if (materialCheckBox5.Checked && isInGameTimeReceived && !isReplayChecked)
-            {
+                //관전상태인지 확인
                 try
                 {
-                    isReplayChecked = true;
                     var client = new WebClient { };
                     client.DownloadData("https://127.0.0.1:2999/liveclientdata/activeplayer");
+                    isReplay = false;
                 }
                 catch
                 {
                     isReplay = true;
                 }
             }
-
-            //Disconnect websocket in game
-            if (isConnectedtoWebsocket && isReplay)
+            //Disconnect websocket while in-game
+            if (isConnectedtoWebsocket && !isReplay)
             {
                 Websocket.LCU.Close();
                 isConnectedtoWebsocket = false;
             }
 
-            if (materialCheckBox3.Checked && isinGameFocused && isInGameTimeReceived && !isChatMuted)
+            if (isReplay)
             {
-                Thread.Sleep(50);
-                simulateEnter();
-                sendMessage("/deafen");
-                simulateEnter();
-                isChatMuted = true;
-            }
-
-            if (!isinGameFocused && afkTimeForAutomation > 1)
-            {
-                afkTime = afkTimeForAutomation;
-                afkTimeForAutomation = 0;
-            }
-
-            if (afkTimeForAutomation == 130)
-            {
-                mouse_event(MOUSEEVENTF_RIGHTDOWN, 0, 0, 0, 0);
-                mouse_event(MOUSEEVENTF_RIGHTUP, 0, 0, 0, 0);
-                afkTimeForAutomation = 0;
-            }
-
-            // first afkwarning occurs at 2:40
-            if (afkTime >= 1 && ingameTime == 160)
-                sendAfkWarning();
-
-            // afkTime 2:10 (130)
-            if (ingameTime >= 430 && afkTime == 130)
-                sendAfkWarning();
-
-            textBox8.Text = dt.AddSeconds(afkTime).ToString("mm:ss");
-
-            //50 FOV in Replay
-            if (materialCheckBox5.Checked && isReplay && !isReplayDataSent)
-            {
-                string json = "{ \"fieldOfView\": 50.0, \"interfaceScoreboard\": true }";
-                byte[] bytes = Encoding.ASCII.GetBytes(json); //convert from json to byte
-
-                using (var client = new WebClient { Credentials = new NetworkCredential("", "") })
+                //50 FOV in Replay
+                if (materialCheckBox5.Checked && !isReplayDataSent)
                 {
-                    client.UploadData("https://127.0.0.1:2999/replay/render", "POST", bytes); //Send custom replay settings
+                    string json = "{ \"fieldOfView\": 50.0, \"interfaceScoreboard\": true }";
+                    byte[] bytes = Encoding.ASCII.GetBytes(json); //convert from json to byte
+
+                    using (var client = new WebClient { Credentials = new NetworkCredential("", "") })
+                    {
+                        client.UploadData("https://127.0.0.1:2999/replay/render", "POST", bytes); //Send custom replay settings
+                    }
+                    isReplayDataSent = true;
+                }
+            }
+            else
+            {
+                if (materialCheckBox3.Checked && isinGameFocused && ingameTime > 1 && !isChatMuted)
+                {
+                    Thread.Sleep(50);
+                    simulateEnter();
+                    sendMessage("/deafen");
+                    simulateEnter();
+                    isChatMuted = true;
                 }
 
-                json = "{ \"time\": 80 }";
-                bytes = Encoding.ASCII.GetBytes(json); //convert from json to byte
-
-                using (var client = new WebClient { Credentials = new NetworkCredential("", "") })
+                if (!isinGameFocused && afkTimeForAutomation > 1)
                 {
-                    client.UploadData("https://127.0.0.1:2999/replay/playback", "POST", bytes); //Change the ingame Time
+                    afkTime = afkTimeForAutomation;
+                    afkTimeForAutomation = 0;
                 }
-                json = string.Empty;
 
-                isReplayDataSent = true;
+                if (afkTimeForAutomation == 130)
+                {
+                    mouse_event(MOUSEEVENTF_RIGHTDOWN, 0, 0, 0, 0);
+                    mouse_event(MOUSEEVENTF_RIGHTUP, 0, 0, 0, 0);
+                    afkTimeForAutomation = 0;
+                }
+
+                // first afkwarning occurs at 2:40
+                if (afkTime >= 1 && ingameTime == 160)
+                    sendAfkWarning();
+
+                // afkTime 2:10 (130)
+                if (ingameTime >= 430 && afkTime == 130)
+                    sendAfkWarning();
+
+                textBox8.Text = dt.AddSeconds(afkTime).ToString("mm:ss");
             }
         }
 
@@ -572,18 +560,17 @@ namespace LoL_Companion
             textBox6.Text = "";
             textBox7.Text = "";
 
-            isInGameTimeReceived = false;
             isChatMuted = false;
-            isReplayChecked = false;
-            isReplay = false;
+            isReplay = true;
             isReplayDataSent = false;
 
             isAutomaticfAfkTriggered = false;
             afkTimeForAutomation = 0;
 
+            if (this.TopMost)
+                this.TopMost = false;
             afkTime = 0;
             textBox8.Text = string.Empty;
-            this.TopMost = false;
             label1.Visible = false;
         }
 
@@ -600,45 +587,64 @@ namespace LoL_Companion
         private void timer2_Tick(object sender, EventArgs e)
         {
             if (isinGameRunning)
-            {
-                if (!isInGameTimeReceived)
-                {
+                if (ingameTime > 1)
                     try
                     {
                         string input = new WebClient().DownloadString(@"https://127.0.0.1:2999/liveclientdata/gamestats");
                         JObject gamestats = JObject.Parse(input);
                         double gameTime = Convert.ToDouble(gamestats["gameTime"]);
                         if (gameTime > 0.5)
-                        {
                             ingameTime = Convert.ToInt32(gameTime);
-                            isInGameTimeReceived = true;
-                        }
                     }
-                    catch
-                    {
-                        isInGameTimeReceived = false;
-                    }
-                }
+                    catch { }
                 else
-                {
                     ingameTime++;
-                }
-            }
 
             if (isAutomaticfAfkTriggered && isinGameFocused)
-            {
                 afkTimeForAutomation++;
-            }
 
             // increases afktime (Manual)
-            if (!isinGameFocused && isInGameTimeReceived && !isReplay)
+            if (!isinGameFocused && ingameTime > 1 && !isReplay)
                 afkTime++;
             else
             {
+                if (this.TopMost)
+                    this.TopMost = false;
                 afkTime = 0;
                 textBox8.Text = string.Empty;
-                this.TopMost = false;
                 label1.Visible = false;
+            }
+        }
+
+        int draggedTime = 0;
+        bool isTimerOnforDragging = false;
+
+        private void timer3_Tick(object sender, EventArgs e)
+        {
+            if (materialCheckBox9.Checked && isinGameRunning) //롤 켜지면 강제종료 후 타이머 카운팅 시작
+            {
+                foreach (var process in Process.GetProcessesByName("League of Legends"))
+                {
+                    process.Kill();
+                }
+                isTimerOnforDragging = true;
+            }
+
+            if (isTimerOnforDragging)
+            {
+                draggedTime++;
+                textBox1.Visible = true;
+                textBox1.Text = dt.AddSeconds(draggedTime).ToString("mm:ss");
+            }
+
+            if (draggedTime == 230)
+            {
+                json = "0";
+                LCU_Request.POST("/lol-gameflow/v1/reconnect");
+
+                materialCheckBox9.Checked = false;
+                draggedTime = 0;
+                isTimerOnforDragging = false;
             }
         }
 
@@ -1003,34 +1009,6 @@ namespace LoL_Companion
             autoLogin("en_AU");
         }
 
-        public bool isChatAvailable = false;
-
-        public void sendChatinChampSelect(string body)
-        {
-            LCU_Request.GET("/lol-chat/v1/conversations");
-            JArray jsonArray = JArray.Parse(response);
-            string id = "";
-
-            foreach (JObject item in jsonArray)
-            {
-                string type = item["type"].ToString();
-
-                if (type == "championSelect")
-                {
-                    id = item["id"].ToString();
-                    break;
-                }
-            }
-
-            if (!string.IsNullOrEmpty(id))
-            {
-                isChatAvailable = true;
-
-                json = $"{{\"type\":\"chat\", \"isHistorical\":false, \"body\":\"{body}\"}}";
-                LCU_Request.POST($"/lol-chat/v1/conversations/{id}/messages");
-            }
-        }
-
         private void materialRaisedButton23_Click(object sender, EventArgs e)
         {
             materialSingleLineTextField7.Text = "/lol-summoner/v1/current-summoner";
@@ -1260,38 +1238,6 @@ namespace LoL_Companion
             }
         }
 
-        int draggedTime = 0;
-        bool isTimerOnforDragging = false;
-
-        private void timer3_Tick(object sender, EventArgs e)
-        {
-            if (materialCheckBox9.Checked && isinGameRunning) //롤 켜지면 강제종료 후 타이머 카운팅 시작
-            {
-                foreach (var process in Process.GetProcessesByName("League of Legends"))
-                {
-                    process.Kill();
-                }
-                isTimerOnforDragging = true;
-            }
-
-            if (isTimerOnforDragging)
-            {
-                draggedTime++;
-                textBox1.Visible = true;
-                textBox1.Text = dt.AddSeconds(draggedTime).ToString("mm:ss");
-            }
-
-            if (draggedTime == 230)
-            {
-                json = "0";
-                LCU_Request.POST("/lol-gameflow/v1/reconnect");
-
-                materialCheckBox9.Checked = false;
-                draggedTime = 0;
-                isTimerOnforDragging = false;
-            }
-        }
-
         private void materialSingleLineTextField1_Enter(object sender, EventArgs e)
         {
             materialSingleLineTextField1.Text = string.Empty;
@@ -1332,12 +1278,6 @@ namespace LoL_Companion
             }
             else
                 materialSingleLineTextField2.Enabled = true;
-        }
-
-        private void materialRaisedButton37_Click(object sender, EventArgs e)
-        {
-            Form1.Object.json = "{" + $"\"championId\":11, \"completed\": true" + "}";
-            LCU_Request.PATCH($"/lol-champ-select/v1/session/actions/1");
         }
 
         private void materialRaisedButton13_Click(object sender, EventArgs e)

@@ -37,7 +37,7 @@ namespace LoL_Companion
         string savedChampName = "";
         List<String> calledoutSummonerId = new List<String>();
 
-        public void minimiseClient_conditional()
+        private void minimiseClient_conditional()
         {
             if (!Form1.Object.isClientFocused)
             {
@@ -91,10 +91,8 @@ namespace LoL_Companion
                         Console.WriteLine("List Cleared");
                         OPGG.Clear();
                         calledoutSummonerId.Clear();
-                        Form1.Object.isChatAvailable = false;
+                        isChatAvailable = false;
                         chat_in_finalization = false;
-
-                        return;
                     }
 
                     // Get QueueId
@@ -120,11 +118,18 @@ namespace LoL_Companion
                             LCU.Send(wsMessage);
                         }
 
+                        if (queueId == "-1") // Normal Game Only (430)
+                        {
+                            //Champion Instant Lock (Normal)
+                            if (Form1.Object.materialCheckBox14.Checked)
+                                pickChampion("practice");
+                        }
+
                         if (queueId == "430") // Normal Game Only (430)
                         {
                             //Champion Instant Lock (Normal)
                             if (Form1.Object.materialCheckBox14.Checked)
-                                pickChampion(false);
+                                pickChampion("blind");
 
                             //Position Callout
                             if (Form1.Object.materialCheckBox12.Checked)
@@ -145,21 +150,21 @@ namespace LoL_Companion
                                 LCU_Request.GET("/lol-chat/v1/conversations");
                                 JArray jsonArray = JArray.Parse(Form1.Object.response);
 
-                                while (!Form1.Object.isChatAvailable)
+                                while (!isChatAvailable)
                                 {
                                     for (int i = 0; i < 5; i++)
                                     {
-                                        Form1.Object.sendChatinChampSelect(position);
+                                        sendChatinChampSelect(position);
                                     }
                                 }
                                 //Upon completing position callout, reset variable
-                                Form1.Object.isChatAvailable = false;
+                                isChatAvailable = false;
                             }
                         }
 
                         // Champion Intent
                         if (Form1.Object.materialCheckBox14.Checked && (queueId == "400" || queueId == "420" || queueId == "440"))
-                            pickChampion(true);
+                            pickChampion("draft");
 
                         if (queueId == "440") // Solo, Flex Ranked(420, 440) // solo is excluded due to anonymity patch
                         {
@@ -183,13 +188,11 @@ namespace LoL_Companion
                 if (uri.Contains("/lol-champ-select/v1/session"))
                 {
                     // Get phase
-                    LCU_Request.GET("/lol-champ-select/v1/session");
-                    JObject session = JObject.Parse(Form1.Object.response);
-                    string phase = session["timer"]["phase"].ToString();
+                    string phase = json["data"]["timer"]["phase"].ToString();
 
                     if (phase == "FINALIZATION" && !chat_in_finalization && Form1.Object.materialCheckBox21.Checked)
                     {
-                        Form1.Object.sendChatinChampSelect(Form1.Object.materialSingleLineTextField2.Text);
+                        sendChatinChampSelect(Form1.Object.materialSingleLineTextField2.Text);
                         chat_in_finalization = true;
                     }
                 }
@@ -207,6 +210,7 @@ namespace LoL_Companion
                     JObject session = JObject.Parse(Form1.Object.response);
                     string localPlayerCellId = session["localPlayerCellId"].ToString();
 
+                    //Get variables to determine the correct champion pick time
                     string activeActionType = json["data"]["activeActionType"].ToString();
                     bool isSelf = (bool)json["data"]["isSelf"];
                     string championIconStyle = json["data"]["championIconStyle"].ToString();
@@ -222,7 +226,7 @@ namespace LoL_Companion
                         if (Form1.Object.materialCheckBox20.Checked && activeActionType == "ban")
                         {
                             if (Form1.Object.materialCheckBox19.Checked)
-                                Form1.Object.sendChatinChampSelect(Form1.Object.materialSingleLineTextField1.Text);
+                                sendChatinChampSelect(Form1.Object.materialSingleLineTextField1.Text);
 
                             //Ban Champion
                             Form1.Object.json = "{" + $"\"championId\":{Form1.Object.selectedBanChampionId}, \"completed\": true" + "}";
@@ -234,7 +238,7 @@ namespace LoL_Companion
                         //Champion Pick (Draft)
                         if (Form1.Object.materialCheckBox14.Checked && (queueId == "400" || queueId == "420" || queueId == "440"))
                             if (activeActionType == "pick" && skinId == "0" && isActingNow && !isDonePicking)
-                                pickChampion(true);
+                                pickChampion("draft");
                     }
 
                     if ((Form1.Object.materialCheckBox11.Checked || Form1.Object.materialCheckBox18.Checked) && isSelf)
@@ -276,7 +280,7 @@ namespace LoL_Companion
                                 {
                                     if (OPGG[i][1].Contains(championName) && OPGG[i][0] == summonerId)
                                     {
-                                        Form1.Object.sendChatinChampSelect($"{summonerName} | {championName} | {OPGG[i][2]}판 | 승률 {OPGG[i][5]}%");
+                                        sendChatinChampSelect($"{summonerName} | {championName} | {OPGG[i][2]}판 | 승률 {OPGG[i][5]}%");
                                         calledoutSummonerId.Add(summonerId);
                                         foundChampion = true;
                                         break;
@@ -285,7 +289,7 @@ namespace LoL_Companion
 
                                 if (!foundChampion)
                                 {
-                                    Form1.Object.sendChatinChampSelect($"{summonerName} | {championName} | 플레이 기록 없음");
+                                    sendChatinChampSelect($"{summonerName} | {championName} | 플레이 기록 없음");
                                     calledoutSummonerId.Add(summonerId);
                                 }
                             }
@@ -300,7 +304,7 @@ namespace LoL_Companion
 
         public WebSocket LCU_Debug;
 
-        private void pickChampion(bool isRanked)
+        private void pickChampion(string queueType)
         {
             //Find my CellId (pick order)
             LCU_Request.GET("/lol-champ-select/v1/session");
@@ -322,7 +326,7 @@ namespace LoL_Companion
                 case "9": id_ = "19"; break;
             }
 
-            if (isRanked)
+            if (queueType == "draft")
             {
                 Form1.Object.json = "{" + $"\"championId\":{Form1.Object.selectedChampionId}, \"completed\": true" + "}";
                 LCU_Request.PATCH($"/lol-champ-select/v1/session/actions/{id_}");
@@ -333,9 +337,41 @@ namespace LoL_Companion
                     Form1.Object.json = "{" + $"\"championId\":{Form1.Object.selectedChampionId}, \"completed\": true" + "}";
                 else // no lock-in
                     Form1.Object.json = "{" + $"\"championId\":{Form1.Object.selectedChampionId}, \"completed\": false" + "}";
-                LCU_Request.PATCH($"/lol-champ-select/v1/session/actions/{localPlayerCellId}");
+
+                if (queueType == "blind")
+                    LCU_Request.PATCH($"/lol-champ-select/v1/session/actions/{localPlayerCellId}");
+
+                if (queueType == "practice")
+                    LCU_Request.PATCH($"/lol-champ-select/v1/session/actions/1");
             }
             minimiseClient_conditional();
+        }
+
+        bool isChatAvailable = false;
+        private void sendChatinChampSelect(string body)
+        {
+            LCU_Request.GET("/lol-chat/v1/conversations");
+            JArray jsonArray = JArray.Parse(Form1.Object.response);
+            string id = "";
+
+            foreach (JObject item in jsonArray)
+            {
+                string type = item["type"].ToString();
+
+                if (type == "championSelect")
+                {
+                    id = item["id"].ToString();
+                    break;
+                }
+            }
+
+            if (!string.IsNullOrEmpty(id))
+            {
+                isChatAvailable = true;
+
+                Form1.Object.json = $"{{\"type\":\"chat\", \"isHistorical\":false, \"body\":\"{body}\"}}";
+                LCU_Request.POST($"/lol-chat/v1/conversations/{id}/messages");
+            }
         }
 
         public void debug()
@@ -366,8 +402,7 @@ namespace LoL_Companion
             }
         }
 
-        ///////////////
-        public void Report()
+        private void Report()
         {
             try
             {
@@ -420,7 +455,6 @@ namespace LoL_Companion
             }
         }
 
-        ///////////////
         private void scrapOPGG()
         {
             //summonerID를 가져옴

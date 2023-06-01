@@ -37,7 +37,7 @@ namespace LoL_Companion
             }
         }
 
-        public void SendRequest(string plugIn, string method)
+        private void SendRequest(string plugIn, string method)
         {
             GetRiotCredentials(plugIn);
 

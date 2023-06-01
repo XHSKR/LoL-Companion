@@ -145,7 +145,6 @@
             this.materialRaisedButton25 = new MaterialSkin.Controls.MaterialRaisedButton();
             this.materialRaisedButton26 = new MaterialSkin.Controls.MaterialRaisedButton();
             this.tabPage7 = new System.Windows.Forms.TabPage();
-            this.materialRaisedButton37 = new MaterialSkin.Controls.MaterialRaisedButton();
             this.groupBox16 = new System.Windows.Forms.GroupBox();
             this.materialRaisedButton19 = new MaterialSkin.Controls.MaterialRaisedButton();
             this.materialRaisedButton50 = new MaterialSkin.Controls.MaterialRaisedButton();
@@ -2012,7 +2011,6 @@
             // tabPage7
             // 
             this.tabPage7.BackColor = System.Drawing.Color.White;
-            this.tabPage7.Controls.Add(this.materialRaisedButton37);
             this.tabPage7.Controls.Add(this.groupBox16);
             this.tabPage7.Controls.Add(this.materialRaisedButton48);
             this.tabPage7.Controls.Add(this.groupBox14);
@@ -2022,23 +2020,6 @@
             this.tabPage7.Size = new System.Drawing.Size(968, 385);
             this.tabPage7.TabIndex = 6;
             this.tabPage7.Text = "Debug";
-            // 
-            // materialRaisedButton37
-            // 
-            this.materialRaisedButton37.AutoSize = true;
-            this.materialRaisedButton37.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
-            this.materialRaisedButton37.Depth = 0;
-            this.materialRaisedButton37.Icon = null;
-            this.materialRaisedButton37.Location = new System.Drawing.Point(475, 256);
-            this.materialRaisedButton37.Margin = new System.Windows.Forms.Padding(4, 5, 4, 5);
-            this.materialRaisedButton37.MouseState = MaterialSkin.MouseState.HOVER;
-            this.materialRaisedButton37.Name = "materialRaisedButton37";
-            this.materialRaisedButton37.Primary = true;
-            this.materialRaisedButton37.Size = new System.Drawing.Size(133, 36);
-            this.materialRaisedButton37.TabIndex = 123;
-            this.materialRaisedButton37.Text = "Open Folder";
-            this.materialRaisedButton37.UseVisualStyleBackColor = true;
-            this.materialRaisedButton37.Click += new System.EventHandler(this.materialRaisedButton37_Click);
             // 
             // groupBox16
             // 
@@ -2515,7 +2496,6 @@
         public MaterialSkin.Controls.MaterialRaisedButton materialRaisedButton27;
         public MaterialSkin.Controls.MaterialSingleLineTextField materialSingleLineTextField8;
         public MaterialSkin.Controls.MaterialRaisedButton materialRaisedButton39;
-        public MaterialSkin.Controls.MaterialRaisedButton materialRaisedButton37;
     }
 }
 
