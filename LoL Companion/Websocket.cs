@@ -81,18 +81,12 @@ namespace LoL_Companion
                 {
                     if (data == "None")
                     {
-                        //로비로 돌아올 경우 List와 Variable 초기화
+                        // 닷지될경우 champ-select 소켓 연결종료
                         foreach (string eventName in eventNames)
                         {
                             string wsMessage = $"[6, \"{eventName}\"]";
                             LCU.Send(wsMessage);
                         }
-
-                        Console.WriteLine("List Cleared");
-                        OPGG.Clear();
-                        calledoutSummonerId.Clear();
-                        isChatAvailable = false;
-                        chat_in_finalization = false;
                     }
 
                     // Get QueueId
@@ -108,6 +102,13 @@ namespace LoL_Companion
                             Form1.Object.json = "0";
                             LCU_Request.POST("/lol-matchmaking/v1/ready-check/accept");
                         }
+
+                        //로비로 돌아올 경우 List와 Variable 초기화
+                        Console.WriteLine("List Cleared");
+                        OPGG.Clear();
+                        calledoutSummonerId.Clear();
+                        isChatAvailable = false;
+                        chat_in_finalization = false;
                     }
 
                     if (data == "ChampSelect")
