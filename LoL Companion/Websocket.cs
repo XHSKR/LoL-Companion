@@ -345,7 +345,6 @@ namespace LoL_Companion
                 if (queueType == "practice")
                     LCU_Request.PATCH($"/lol-champ-select/v1/session/actions/1");
             }
-            minimiseClient_conditional();
         }
 
         bool isChatAvailable = false;

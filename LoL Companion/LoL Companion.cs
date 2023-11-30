@@ -15,6 +15,7 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Windows.Forms;
 using WindowsInput;
+using System.Linq.Expressions;
 
 namespace LoL_Companion
 {
@@ -255,11 +256,13 @@ namespace LoL_Companion
                     }
                 }
 
-                if (e.KeyValue.ToString() == "123") //F12 Key
+                if (e.KeyValue.ToString() == "122") //F11 Key
                 {
-                    foreach (var process in Process.GetProcessesByName("League of Legends"))
+                    Process[] runningProcesses = Process.GetProcesses();
+                    foreach (Process process in runningProcesses)
                     {
-                        process.Kill();
+                        if (process.ProcessName == "League of Legends")
+                            process.CloseMainWindow();
                     }
                 }
 
@@ -468,8 +471,6 @@ namespace LoL_Companion
 
             materialLabel14.Text = $"Summoner's Name: {summonerName}\nAccount ID: {accountId}\nE-mail Address: {email}\nRegion: {region}";
 
-            sendClientMessage("LoL Companion is successfully connected to the League Client.");
-
             json = "{ \"lol\": { \"rankedLeagueDivision\": \"I\", \"rankedLeagueQueue\": \"RANKED_SOLO_5x5\", \"rankedLeagueTier\": \"CHALLENGER\" } }";
             LCU_Request.PUT("/lol-chat/v1/me");
         }
@@ -500,18 +501,20 @@ namespace LoL_Companion
 
             if (isReplay)
             {
-                //50 FOV in Replay
-                if (materialCheckBox5.Checked && !isReplayDataSent)
+                try
                 {
-                    string json = "{ \"fieldOfView\": 50.0, \"interfaceScoreboard\": true }";
-                    byte[] bytes = Encoding.ASCII.GetBytes(json); //convert from json to byte
-
-                    using (var client = new WebClient { Credentials = new NetworkCredential("", "") })
+                    //50 FOV in Replay
+                    if (materialCheckBox5.Checked && !isReplayDataSent)
                     {
-                        client.UploadData("https://127.0.0.1:2999/replay/render", "POST", bytes); //Send custom replay settings
+                        string json = "{ \"fieldOfView\": 50.0, \"interfaceScoreboard\": true }";
+                        byte[] bytes = Encoding.ASCII.GetBytes(json); //convert from json to byte
+
+                        using (var client = new WebClient { Credentials = new NetworkCredential("", "") })
+                            client.UploadData("https://127.0.0.1:2999/replay/render", "POST", bytes); //Send custom replay settings
+                        isReplayDataSent = true;
                     }
-                    isReplayDataSent = true;
                 }
+                catch { }
             }
             else
             {
