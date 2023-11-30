@@ -44,8 +44,6 @@ namespace LoL_Companion
 
             SettingSaver.loadCredentials();
             comboBox2.Items.AddRange(leagueID.ToArray());
-
-            comboBox1.DropDownStyle = ComboBoxStyle.DropDownList;
             comboBox2.DropDownStyle = ComboBoxStyle.DropDownList;
 
             //Ignore HTTPS certificate error
@@ -144,35 +142,15 @@ namespace LoL_Companion
 
         bool isChatMuted = false;
         bool isReplay = true;
-        bool isReplayDataSent = false;
         int afkTime = 0;
-        bool isAutomaticfAfkTriggered = false;
-
-        int afkTimeForAutomation = 0;
-
-        private bool isRiotServer = false;
 
         public List<string> leagueID;
         public string leaguePass;
-        public class Receiver
-        {
-            public string summonerId { get; set; }
-
-        }
 
         public bool isConnectedtoWebsocket = false;
 
         [DllImport("user32.dll")] static extern IntPtr GetForegroundWindow();
         [DllImport("user32.dll")] static extern int GetWindowText(IntPtr hWnd, StringBuilder text, int count);
-
-        [DllImport("user32.dll")] static extern void mouse_event(int dwFlags, int dx, int dy, int dwData, int dwExtraInfo);
-
-        private const int MOUSEEVENTF_LEFTDOWN = 0x02;
-        private const int MOUSEEVENTF_LEFTUP = 0x04;
-        private const int MOUSEEVENTF_RIGHTDOWN = 0x08;
-        private const int MOUSEEVENTF_RIGHTUP = 0x10;
-
-        ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
         private void sendMessage(string chatMessage)
         {
@@ -227,35 +205,6 @@ namespace LoL_Companion
         {
             if (isinGameRunning && isinGameFocused && ingameTime > 1)
             {
-                // Spamming
-                if (e.KeyValue.ToString() == "222" && isSpamOn) // ' key 
-                {
-                    string str = materialSingleLineTextField6.Text;
-                    str = str.ToUpper(); //대문자로 치환
-
-                    if (materialCheckBox7.Checked) // Accumulative
-                    {
-                        for (int i = 0; i < str.Length; i++)
-                        {
-                            simulateEnter();
-                            if (materialCheckBox6.Checked) //전체채팅이 켜져있다면
-                                sendMessage("/all " + str.Substring(0, i + 1));
-                            else
-                                sendMessage(str.Substring(0, i + 1));
-                            simulateEnter();
-                        }
-                    }
-                    else //기본
-                    {
-                        simulateEnter();
-                        if (materialCheckBox6.Checked) //전체채팅이 켜져있다면
-                            sendMessage("/all " + str.ToString());
-                        else
-                            sendMessage(str);
-                        simulateEnter();
-                    }
-                }
-
                 if (e.KeyValue.ToString() == "122") //F11 Key
                 {
                     Process[] runningProcesses = Process.GetProcesses();
@@ -350,22 +299,6 @@ namespace LoL_Companion
                         }
                     }
                 }
-
-                if (materialCheckBox15.Checked && e.KeyValue.ToString() == "190") // .key
-                {
-                    if (isAutomaticfAfkTriggered)
-                        isAutomaticfAfkTriggered = false;
-                    else
-                    {
-                        simulateEnter();
-                        sendMessage("Press the button again to abort");
-
-                        mouse_event(MOUSEEVENTF_RIGHTDOWN, 0, 0, 0, 0);
-                        mouse_event(MOUSEEVENTF_RIGHTUP, 0, 0, 0, 0);
-
-                        isAutomaticfAfkTriggered = true;
-                    }
-                }
             }
         }
 
@@ -380,7 +313,6 @@ namespace LoL_Companion
             string focusedApp = getActiveWindowName();
             isClientFocused = focusedApp == "League of Legends";
             isinGameFocused = focusedApp == "League of Legends (TM) Client";
-
 
             if (isClientRunning)
             {
@@ -401,6 +333,7 @@ namespace LoL_Companion
             else
                 ResetInGame();
         }
+
         private void RetrieveAccountInfo()
         {
             Process[] processes = Process.GetProcessesByName("RiotClientServices");
@@ -429,10 +362,6 @@ namespace LoL_Companion
 
             if (isRiotServer)
             {
-                materialCheckBox4.Enabled = true;
-                materialCheckBox11.Enabled = true;
-                materialCheckBox5.Enabled = true;
-
                 //If it's a Riot Server, get the email address of the account.
                 LCU_Request.GET("/lol-email-verification/v1/email");
                 JObject email_ = JObject.Parse(response);
@@ -458,13 +387,6 @@ namespace LoL_Companion
             else
             {
                 leagueLocation = oldLeagueLocation;
-
-                materialCheckBox4.Enabled = false;
-                materialCheckBox11.Enabled = false;
-                materialCheckBox5.Enabled = false;
-                materialCheckBox4.Checked = false;
-                materialCheckBox11.Checked = false;
-                materialCheckBox5.Checked = false;
 
                 region = "Non-Riot Server (PBE, China, Garena)";
             }
@@ -499,24 +421,7 @@ namespace LoL_Companion
                 isConnectedtoWebsocket = false;
             }
 
-            if (isReplay)
-            {
-                try
-                {
-                    //50 FOV in Replay
-                    if (materialCheckBox5.Checked && !isReplayDataSent)
-                    {
-                        string json = "{ \"fieldOfView\": 50.0, \"interfaceScoreboard\": true }";
-                        byte[] bytes = Encoding.ASCII.GetBytes(json); //convert from json to byte
-
-                        using (var client = new WebClient { Credentials = new NetworkCredential("", "") })
-                            client.UploadData("https://127.0.0.1:2999/replay/render", "POST", bytes); //Send custom replay settings
-                        isReplayDataSent = true;
-                    }
-                }
-                catch { }
-            }
-            else
+            if (!isReplay)
             {
                 if (materialCheckBox3.Checked && isinGameFocused && ingameTime > 1 && !isChatMuted)
                 {
@@ -525,19 +430,6 @@ namespace LoL_Companion
                     sendMessage("/deafen");
                     simulateEnter();
                     isChatMuted = true;
-                }
-
-                if (!isinGameFocused && afkTimeForAutomation > 1)
-                {
-                    afkTime = afkTimeForAutomation;
-                    afkTimeForAutomation = 0;
-                }
-
-                if (afkTimeForAutomation == 130)
-                {
-                    mouse_event(MOUSEEVENTF_RIGHTDOWN, 0, 0, 0, 0);
-                    mouse_event(MOUSEEVENTF_RIGHTUP, 0, 0, 0, 0);
-                    afkTimeForAutomation = 0;
                 }
 
                 // first afkwarning occurs at 2:40
@@ -565,10 +457,6 @@ namespace LoL_Companion
 
             isChatMuted = false;
             isReplay = true;
-            isReplayDataSent = false;
-
-            isAutomaticfAfkTriggered = false;
-            afkTimeForAutomation = 0;
 
             if (this.TopMost)
                 this.TopMost = false;
@@ -602,9 +490,6 @@ namespace LoL_Companion
                     catch { }
                 else
                     ingameTime++;
-
-            if (isAutomaticfAfkTriggered && isinGameFocused)
-                afkTimeForAutomation++;
 
             // increases afktime (Manual)
             if (!isinGameFocused && ingameTime > 1 && !isReplay)
@@ -651,62 +536,11 @@ namespace LoL_Companion
             }
         }
 
-        public void sendClientMessage(string clientMessage)
-        {
-            json = "{\"data\":{\"details\":\"" + clientMessage + "\",\"title\":\"LoL Companion\"},\"detailKey\":\"pre_translated_details\",\"iconUrl\":\"/fe/lol-static-assets/images/ranked-emblem.png\",\"titleKey\":\"pre_translated_title\"}";
-            LCU_Request.POST("/player-notifications/v1/notifications");
-        }
-
         private void materialRaisedButton1_Click(object sender, EventArgs e) { lanerTimer[0] = 0; }
         private void materialRaisedButton2_Click(object sender, EventArgs e) { lanerTimer[1] = 0; }
         private void materialRaisedButton3_Click(object sender, EventArgs e) { lanerTimer[2] = 0; }
         private void materialRaisedButton4_Click(object sender, EventArgs e) { lanerTimer[3] = 0; }
         private void materialRaisedButton5_Click(object sender, EventArgs e) { lanerTimer[4] = 0; }
-
-        private void materialSingleLineTextField6_Enter(object sender, EventArgs e)
-        {
-            materialSingleLineTextField6.Text = string.Empty;
-        }
-
-        bool isSpamOn = false;
-        private void materialRaisedButton16_Click(object sender, EventArgs e)
-        {
-            if (isSpamOn) //Disable
-            {
-                isSpamOn = false;
-                materialRaisedButton16.Text = "Spam !";
-                materialSingleLineTextField6.Enabled = true;
-                groupBox6.Enabled = true;
-                groupBox7.Enabled = true;
-            }
-            else //Enable
-            {
-                if (materialSingleLineTextField6.Text == string.Empty)
-                {
-                    MessageBox.Show("Change the text first.", "Warning !", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    materialSingleLineTextField6.Focus();
-                    return;
-                }
-                isSpamOn = true;
-                materialRaisedButton16.Text = "STOP";
-                materialSingleLineTextField6.Enabled = false;
-                groupBox6.Enabled = false;
-                groupBox7.Enabled = false;
-            }
-        }
-        private void materialRaisedButton14_Click(object sender, EventArgs e)
-        {
-            materialSingleLineTextField6.Text = "자 드가자~ 가보자~";
-            materialCheckBox6.Checked = true;
-            materialCheckBox7.Checked = false;
-        }
-
-        private void materialRaisedButton15_Click(object sender, EventArgs e)
-        {
-            materialSingleLineTextField6.Text = "ㅌㅊㅇ ㅁㄷㅊㅇ ㅇㄷㅊㅇ ㅅㅍㅊㅇ";
-            materialCheckBox6.Checked = true;
-            materialCheckBox7.Checked = false;
-        }
 
         private void materialRaisedButton9_Click(object sender, EventArgs e)
         {
@@ -797,42 +631,6 @@ namespace LoL_Companion
             }
         }
 
-        private void materialRaisedButton25_Click(object sender, EventArgs e)
-        {
-            terminateLoL();
-
-            var oldLines = System.IO.File.ReadAllLines(leagueLocation + "system.yaml");
-            System.IO.Directory.CreateDirectory(leagueLocation + "LoL Companion");
-            var newLines = oldLines.Select(line => new
-            {
-                Line = line,
-                Words = line.Split(' ')
-            })
-            .Where(lineInfo => !lineInfo.Words.Contains("riotclient:"))
-            .Select(lineInfo => lineInfo.Line);
-            System.IO.File.WriteAllLines(leagueLocation + "LoL Companion/system.yaml", newLines);
-            string newYaml = "\"--system-yaml-override=" + leagueLocation + "LoL Companion/system.yaml\"";
-
-            Process.Start(leagueLocation + "LeagueClient.exe", newYaml);
-        }
-
-        private void materialRaisedButton26_Click(object sender, EventArgs e)
-        {
-            try
-            {
-                LCU_Request.GET("/lol-summoner/v1/current-summoner");
-                JObject current_summoner = JObject.Parse(response);
-                string summonerId = current_summoner["summonerId"].ToString();
-                LCU_Request.GET("/lol-item-sets/v1/item-sets/" + summonerId + "/sets");
-                Clipboard.SetText(response);
-                MessageBox.Show("Copied to clipboard");
-            }
-            catch
-            {
-                MessageBox.Show("Error while requesting GET method.");
-            }
-        }
-
         private void materialRaisedButton22_Click(object sender, EventArgs e)
         {
             try
@@ -847,92 +645,6 @@ namespace LoL_Companion
             {
                 MessageBox.Show("Error while requesting POST method.");
             }
-        }
-
-        private void materialRaisedButton29_Click(object sender, EventArgs e)
-        {
-            //큐 돌리기
-            json = "0";
-            LCU_Request.POST("/lol-lobby/v2/lobby/matchmaking/search");
-        }
-
-        private void materialRaisedButton31_Click(object sender, EventArgs e)
-        {
-            //큐 풀기
-            json = "0";
-            LCU_Request.POST("/lol-lobby/v2/play-again");
-        }
-
-        private void materialRaisedButton32_Click(object sender, EventArgs e)
-        {
-            string queueId = "";
-
-            if (comboBox1.Text == "AI Intermediate")
-                queueId = "850";
-
-            if (comboBox1.Text == "ARAM")
-                queueId = "450";
-
-            if (comboBox1.Text == "Normal Rift")
-                queueId = "430";
-
-            if (comboBox1.Text == "Ranked Rift")
-                queueId = "420";
-
-            if (comboBox1.Text == "Flex Ranked Rift")
-                queueId = "440";
-
-            json = ("{" + $"\"queueId\": {queueId}" + "}");
-            LCU_Request.POST("/lol-lobby/v2/lobby");
-        }
-        private void materialRaisedButton6_Click(object sender, EventArgs e)
-        {
-            string summonerId;
-            try
-            {
-                LCU_Request.GET("/lol-summoner/v1/summoners?name=" + materialSingleLineTextField4.Text);
-                JObject summoners = JObject.Parse(response);
-                summonerId = summoners["summonerId"].ToString();
-            }
-            catch
-            {
-                MessageBox.Show("The summoner's name does not exist.");
-                return;
-            }
-
-            //invite a target
-            json = ("[{" + $"\"toSummonerId\":{summonerId}" + "}]");
-            LCU_Request.POST("/lol-lobby/v2/lobby/invitations");
-        }
-
-        private void materialRaisedButton33_Click(object sender, EventArgs e)
-        {
-            string summonerId;
-            try
-            {
-                LCU_Request.GET("/lol-summoner/v1/summoners?name=" + materialSingleLineTextField4.Text);
-                JObject summoners = JObject.Parse(response);
-                summonerId = summoners["summonerId"].ToString();
-            }
-            catch
-            {
-                MessageBox.Show("The summoner's name does not exist.");
-                return;
-            }
-
-            json = "0";
-            LCU_Request.POST("/lol-lobby/v2/lobby/members/" + summonerId + "/promote");
-        }
-
-        private void materialSingleLineTextField4_Enter(object sender, EventArgs e)
-        {
-            materialSingleLineTextField4.Text = string.Empty;
-        }
-
-        private void materialRaisedButton35_Click(object sender, EventArgs e)
-        {
-            json = "0";
-            LCU_Request.POST("/lol-lobby/v2/play-again");
         }
 
         private void terminateLoL()
@@ -1010,50 +722,6 @@ namespace LoL_Companion
         private void materialRaisedButton38_Click(object sender, EventArgs e)
         {
             autoLogin("en_AU");
-        }
-
-        private void materialRaisedButton23_Click(object sender, EventArgs e)
-        {
-            materialSingleLineTextField7.Text = "/lol-summoner/v1/current-summoner";
-        }
-
-        private void materialRaisedButton17_Click(object sender, EventArgs e)
-        {
-            materialSingleLineTextField7.Text = "/lol-summoner/v1/summoners/{summonerID}";
-        }
-
-        private void materialRaisedButton21_Click(object sender, EventArgs e)
-        {
-            materialSingleLineTextField7.Text = "/lol-summoner/v1/summoners?name={Username}";
-        }
-
-        private void materialRaisedButton50_Click(object sender, EventArgs e)
-        {
-            materialSingleLineTextField7.Text = "/lol-champ-select/v1/session";
-        }
-
-        private void materialRaisedButton19_Click_1(object sender, EventArgs e)
-        {
-            materialSingleLineTextField7.Text = "/lol-gameflow/v1/gameflow-metadata/player-status";
-        }
-
-        private void materialRaisedButton48_Click(object sender, EventArgs e)
-        {
-            LCU_Request.GET(materialSingleLineTextField7.Text);
-            MessageBox.Show(response);
-            Clipboard.SetText(response);
-        }
-
-        private void materialRaisedButton27_Click(object sender, EventArgs e)
-        {
-            json = "{\"componentType\":\"replay - button_match - history\"}";
-            LCU_Request.POST($"/lol-replays/v1/rofls/{materialSingleLineTextField8.Text}/download");
-        }
-
-        private void materialRaisedButton39_Click(object sender, EventArgs e)
-        {
-            json = "{\"componentType\":\"replay - button_match - history\"}";
-            LCU_Request.POST($"/lol-replays/v1/rofls/{materialSingleLineTextField8.Text}/watch");
         }
 
         public string savePath;
@@ -1185,12 +853,6 @@ namespace LoL_Companion
             comboBox6.Text = String.Empty;
         }
 
-        private void materialCheckBox15_CheckedChanged(object sender, EventArgs e)
-        {
-            if (materialCheckBox15.Checked)
-                MessageBox.Show("Enabled.\nTo trigger the event, hover your mouse over the enemy nexus on the minimap and press \".\"(Full Stop)");
-        }
-
         private void materialRaisedButton20_Click(object sender, EventArgs e)
         {
             json = ("{" + $"\"queueId\": 420" + "}");
@@ -1281,36 +943,6 @@ namespace LoL_Companion
             }
             else
                 materialSingleLineTextField2.Enabled = true;
-        }
-
-        private void materialRaisedButton13_Click(object sender, EventArgs e)
-        {
-            if (isinGameRunning)
-            {
-                MessageBox.Show("Game is already running");
-                return;
-            }
-            OpenFileDialog openFileDialog = new OpenFileDialog();
-            openFileDialog.Filter = "ROFL Files (*.rofl)|*.rofl";
-            openFileDialog.Title = "Select a ROFL File";
-
-            DialogResult result = openFileDialog.ShowDialog();
-
-            if (result == DialogResult.OK)
-            {
-                string filePath = openFileDialog.FileName;
-
-                WshShell shell = new WshShell();
-                IWshShortcut shortcut = (IWshShortcut)shell.CreateShortcut("ReplayShortcut.lnk");
-
-                shortcut.TargetPath = leagueLocation + @"\Game\League of Legends.exe";
-                shortcut.Arguments = $"\"{filePath}\"";
-                shortcut.WorkingDirectory = leagueLocation + @"\Game";
-                shortcut.Save();
-
-                materialCheckBox5.Checked = false;
-                Process.Start("ReplayShortcut.lnk");
-            }
         }
 
         private void SetLobbyPreset(string position, string champion, string ban)

@@ -1,16 +1,10 @@
-﻿using HtmlAgilityPack;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
+﻿using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
 using System.Runtime.InteropServices;
 using System.Security.Authentication;
 using System.Text;
-using System.Text.RegularExpressions;
 using System.Threading;
-using System.Web;
 using WebSocketSharp;
 
 namespace LoL_Companion
@@ -166,22 +160,6 @@ namespace LoL_Companion
                         // Champion Intent
                         if (Form1.Object.materialCheckBox14.Checked && (queueId == "400" || queueId == "420" || queueId == "440"))
                             pickChampion("draft");
-
-                        if (queueId == "440") // Solo, Flex Ranked(420, 440) // solo is excluded due to anonymity patch
-                        {
-                            if (Form1.Object.materialCheckBox4.Checked)
-                                multiSearch();
-
-                            if (Form1.Object.materialCheckBox11.Checked)
-                                scrapOPGG();
-                        }
-                    }
-
-                    //Automatic Report // may not work.. look into it later
-                    if (data == "EndOfGame" && Form1.Object.materialCheckBox17.Checked)
-                    {
-                        if (queueId != "-1") //Exclude Practice Tool
-                            Report();
                     }
                 }
 
@@ -240,61 +218,6 @@ namespace LoL_Companion
                         if (Form1.Object.materialCheckBox14.Checked && (queueId == "400" || queueId == "420" || queueId == "440"))
                             if (activeActionType == "pick" && skinId == "0" && isActingNow && !isDonePicking)
                                 pickChampion("draft");
-                    }
-
-                    if ((Form1.Object.materialCheckBox11.Checked || Form1.Object.materialCheckBox18.Checked) && isSelf)
-                    {
-                        // Get my championName
-                        int pFrom = championIconStyle.IndexOf("champion-icons/") + "champion-icons/".Length;
-                        int pTo = championIconStyle.LastIndexOf(".png");
-                        if (pTo == -1)
-                            return;
-                        string championId = championIconStyle.Substring(pFrom, pTo - pFrom);
-                        string championName = ""; //1회성 Thread이므로 List를 쓰지 않음
-                        for (int i = 0; i < Form1.Object.Champion.Count(); i++)
-                            if (Form1.Object.Champion[i][1] == championId)
-                                championName = Form1.Object.Champion[i][0];
-
-
-                        if (Form1.Object.materialCheckBox18.Checked && queueId == "450") // ARAM
-                        {
-                            if (championName == savedChampName) //중복실행 방지
-                                return;
-                            savedChampName = championName;
-                            string str = Regex.Replace(championName, "[^A-Za-z]", "");
-                            if (str == "NunuWillump")
-                                str = "Nunu";
-                            Process.Start($"https://poro.gg/champions/{str}/aram");
-                        }
-
-                        if (Form1.Object.materialCheckBox11.Checked && queueId == "440")
-                        {
-                            if (isDonePicking && !calledoutSummonerId.Contains(summonerId) && championName != "" && isOnPlayersTeam)
-                            {
-                                // Get summonerName
-                                LCU_Request.GET("/lol-summoner/v1/summoners/" + summonerId);
-                                JObject summoners = JObject.Parse(Form1.Object.response);
-                                string summonerName = summoners["displayName"].ToString();
-
-                                bool foundChampion = false;
-                                for (int i = 0; i < OPGG.Count(); i++)
-                                {
-                                    if (OPGG[i][1].Contains(championName) && OPGG[i][0] == summonerId)
-                                    {
-                                        sendChatinChampSelect($"{summonerName} | {championName} | {OPGG[i][2]}판 | 승률 {OPGG[i][5]}%");
-                                        calledoutSummonerId.Add(summonerId);
-                                        foundChampion = true;
-                                        break;
-                                    }
-                                }
-
-                                if (!foundChampion)
-                                {
-                                    sendChatinChampSelect($"{summonerName} | {championName} | 플레이 기록 없음");
-                                    calledoutSummonerId.Add(summonerId);
-                                }
-                            }
-                        }
                     }
                 }
             };
@@ -401,195 +324,5 @@ namespace LoL_Companion
                 LCU_Debug.Send(wsMessage);
             }
         }
-
-        private void Report()
-        {
-            try
-            {
-                Form1.Object.sendClientMessage("Reporting is in progress.");
-
-                // Get current summoner ID
-                LCU_Request.GET("/lol-summoner/v1/current-summoner");
-                JObject current_summoner = JObject.Parse(Form1.Object.response);
-                string mySummonerId = current_summoner["summonerId"].ToString();
-
-                // Get session and game ID
-                LCU_Request.GET("/lol-gameflow/v1/session");
-                JObject json_ = (JObject)JsonConvert.DeserializeObject(Form1.Object.response);
-                var gameId = json_["gameData"]["gameId"].ToString();
-
-                // Gather summoner IDs from both teams
-                var teamOne = json_["gameData"]["teamOne"].ToString();
-                var teamTwo = json_["gameData"]["teamTwo"].ToString();
-
-                var summonerId1 = GetSummonerIds(teamOne, mySummonerId);
-                var summonerId2 = GetSummonerIds(teamTwo, mySummonerId);
-
-                // Report summoner IDs
-                ReportSummonerIds(gameId, summonerId1);
-                ReportSummonerIds(gameId, summonerId2);
-            }
-            catch { }
-
-            Form1.Object.sendClientMessage("Reporting is complete.");
-        }
-
-        private List<string> GetSummonerIds(string teamData, string mySummonerId)
-        {
-            var result = JsonConvert.DeserializeObject<List<Form1.Receiver>>(teamData);
-            var summonerIds = result.Select(r => r.summonerId.ToString()).ToList();
-            summonerIds.RemoveAll(id => id == mySummonerId);
-            return summonerIds;
-        }
-
-        private void ReportSummonerIds(string gameId, List<string> summonerIds)
-        {
-            foreach (string summonerId in summonerIds)
-            {
-                try
-                {
-                    Form1.Object.json = $"{{\"gameId\":{gameId}, \"offenses\":\"NEGATIVE_ATTITUDE,VERBAL_ABUSE,HATE_SPEECH\", \"reportedSummonerId\":{summonerId}}}";
-                    LCU_Request.POST("/lol-end-of-game/v2/player-complaints");
-                }
-                catch { }
-            }
-        }
-
-        private void scrapOPGG()
-        {
-            //summonerID를 가져옴
-            LCU_Request.GET("/lol-champ-select/v1/session");
-
-            var obj = JObject.Parse(Form1.Object.response);
-            var myTeam = obj["myTeam"];
-            var result = JsonConvert.DeserializeObject<List<Form1.Receiver>>(myTeam.ToString());
-
-            List<String> summonerId = new List<String>();
-            for (int i = 0; i < result.Count; i++)
-            {
-                //summonerId를 List에 저장
-                summonerId.Add(result[i].summonerId);
-            }
-
-            for (int i = 0; i < result.Count; i++)
-            {
-                //summonerName을 가져옴
-                LCU_Request.GET("/lol-summoner/v1/summoners/" + result[i].summonerId);
-                JObject summoners = JObject.Parse(Form1.Object.response);
-                string summonerName = summoners["displayName"].ToString();
-
-                var web = new HtmlWeb();
-                var doc = web.Load($"https://www.op.gg/summoner/champions/userName={summonerName}");
-
-                List<string> list = new List<string>();
-                var summonerStats_1 = doc.DocumentNode.SelectNodes("//*[@class = 'Row TopRanker']"); //맨 위에서부터 7개 까지만 보여줌
-                var summonerStats_2 = doc.DocumentNode.SelectNodes("//*[@class = 'Row ']"); //7개 그 이후부터 보여줌
-
-                decimal Win, Loss;
-
-                if (summonerStats_1 != null)
-                {
-                    foreach (var summonerStats in summonerStats_1) //맨 위에서부터 7개
-                    {
-                        //챔피언
-                        var Champion = (HttpUtility.HtmlDecode(summonerStats.SelectSingleNode(".//*[@class = 'ChampionName Cell']").InnerText)).Trim();
-
-                        //승리
-                        try
-                        {
-                            var Win_str = HttpUtility.HtmlDecode(summonerStats.SelectSingleNode(".//*[@class = 'Text Left']").InnerText).Trim();
-                            Win = decimal.Parse(Win_str.Substring(0, Win_str.Length - 1));
-                        }
-                        catch { Win = 0; }
-
-                        //패배
-                        try
-                        {
-                            var Loss_str = (HttpUtility.HtmlDecode(summonerStats.SelectSingleNode(".//*[@class = 'Text Right']").InnerText)).Trim();
-                            Loss = decimal.Parse(Loss_str.Substring(0, Loss_str.Length - 1));
-                        }
-                        catch { Loss = 0; }
-
-                        //총 판수
-                        var totalGame = Win + Loss;
-
-                        //승률
-                        var winRate = Math.Round((Win / totalGame) * 100, 0);
-
-                        string[] values = { summonerId[i], Champion, totalGame.ToString(), Win.ToString(), Loss.ToString(), winRate.ToString() };
-                        OPGG.Add(values);
-                    }
-                }
-
-                if (summonerStats_2 != null)
-                {
-                    foreach (var summonerStats in summonerStats_2) //7개 이후부터
-                    {
-                        //챔피언
-                        var Champion = (HttpUtility.HtmlDecode(summonerStats.SelectSingleNode(".//*[@class = 'ChampionName Cell']").InnerText)).Trim();
-
-                        //승리
-                        try
-                        {
-                            var Win_str = HttpUtility.HtmlDecode(summonerStats.SelectSingleNode(".//*[@class = 'Text Left']").InnerText).Trim();
-                            Win = decimal.Parse(Win_str.Substring(0, Win_str.Length - 1));
-                        }
-                        catch { Win = 0; }
-
-                        //패배
-                        try
-                        {
-                            var Loss_str = (HttpUtility.HtmlDecode(summonerStats.SelectSingleNode(".//*[@class = 'Text Right']").InnerText)).Trim();
-                            Loss = decimal.Parse(Loss_str.Substring(0, Loss_str.Length - 1));
-                        }
-                        catch { Loss = 0; }
-
-                        //총 판수
-                        var totalGame = Win + Loss;
-
-                        //승률
-                        var winRate = Math.Round((Win / totalGame) * 100, 0);
-
-                        string[] values = { summonerId[i], Champion, totalGame.ToString(), Win.ToString(), Loss.ToString(), winRate.ToString() };
-                        OPGG.Add(values);
-                    }
-                }
-            }
-        }
-
-        private void multiSearch()
-        {
-            //summonerID를 가져옴
-            LCU_Request.GET("/lol-champ-select/v1/session");
-            var obj = JObject.Parse(Form1.Object.response);
-            var input = obj["myTeam"];
-            var result = JsonConvert.DeserializeObject<List<Form1.Receiver>>(input.ToString());
-            List<String> summonerNames = new List<String>();
-            //summonerID를 실제 이름으로 변환 (summonerId를 가져오는 과정은 사실 for 문 첫번째에 있음)
-            for (int i = 0; i < result.Count; i++)
-            {
-                LCU_Request.GET("/lol-summoner/v1/summoners/" + result[i].summonerId);
-                JObject summoners = JObject.Parse(Form1.Object.response);
-                string summonerName = summoners["displayName"].ToString();
-                summonerNames.Add(summonerName);
-            }
-            string summonerNamesCombined = "";
-            //아이디가 모였으므로 합침
-            for (int i = 0; i < summonerNames.Count; i++)
-            {
-                summonerNamesCombined = summonerNamesCombined + summonerNames[i] + ", ";
-            }
-            summonerNamesCombined = summonerNamesCombined.Substring(0, summonerNamesCombined.Length - 2);
-
-            //서버확인
-            LCU_Request.GET("/riotclient/region-locale");
-            JObject region_locale = JObject.Parse(Form1.Object.response);
-            string region = region_locale["webRegion"].ToString();
-
-            //주소접속
-            string porofessorURL = "https://porofessor.gg/pregame/" + region + "/" + summonerNamesCombined + "/ranked-only";
-            Process.Start(porofessorURL);
-        }
-
     }
 }

@@ -36,15 +36,10 @@ namespace LoL_Companion
 
                 writer.WriteLine("\n[League Client Settings]");
                 writer.WriteLine("\"" + Form1.Object.materialCheckBox8.Text + "\" = " + Form1.Object.materialCheckBox8.Checked);
-                writer.WriteLine("\"" + Form1.Object.materialCheckBox18.Text + "\" = " + Form1.Object.materialCheckBox18.Checked);
-                writer.WriteLine("\"" + Form1.Object.materialCheckBox11.Text + "\" = " + Form1.Object.materialCheckBox11.Checked);
-                writer.WriteLine("\"" + Form1.Object.materialCheckBox4.Text + "\" = " + Form1.Object.materialCheckBox4.Checked);
-                writer.WriteLine("\"" + Form1.Object.materialCheckBox17.Text + "\" = " + Form1.Object.materialCheckBox17.Checked);
                 writer.WriteLine("\"Log-in ID\"" + " = " + Form1.Object.comboBox2.Text);
 
                 writer.WriteLine("\n[In-Game Settings]");
                 writer.WriteLine("\"" + Form1.Object.materialCheckBox3.Text + "\" = " + Form1.Object.materialCheckBox3.Checked);
-                writer.WriteLine("\"" + Form1.Object.materialCheckBox5.Text + "\" = " + Form1.Object.materialCheckBox5.Checked);
 
                 writer.WriteLine("\n[Lobby Settings]");
                 writer.WriteLine("\"" + Form1.Object.materialCheckBox12.Text + "\" = " + Form1.Object.materialCheckBox12.Checked);
@@ -76,12 +71,6 @@ namespace LoL_Companion
                 else
                     writer.WriteLine("\"Finalization-Phase\"" + " = " + Form1.Object.materialSingleLineTextField2.Text);
                 writer.WriteLine("\"Finalization-Phase CheckBox\"" + " = " + Form1.Object.materialCheckBox21.Checked);
-                writer.WriteLine("\"" + Form1.Object.materialCheckBox6.Text + "\" = " + Form1.Object.materialCheckBox6.Checked);
-                writer.WriteLine("\"" + Form1.Object.materialCheckBox7.Text + "\" =  " + Form1.Object.materialCheckBox7.Checked);
-                if (Form1.Object.materialSingleLineTextField6.Text == string.Empty)
-                    writer.WriteLine("\"Spamming Text\"" + " = " + "Enter text here to spam");
-                else
-                    writer.WriteLine("\"Spamming Text\"" + " = " + Form1.Object.materialSingleLineTextField6.Text);
 
                 writer.WriteLine("\n[Spell Tracker Settings]");
                 writer.WriteLine("\"" + Form1.Object.materialCheckBox10.Text + "\" = " + Form1.Object.materialCheckBox10.Checked);
@@ -121,15 +110,10 @@ namespace LoL_Companion
 
                 //League Client Settings
                 Form1.Object.materialCheckBox8.Checked = bool.Parse(states[1]);
-                Form1.Object.materialCheckBox18.Checked = bool.Parse(states[2]);
-                Form1.Object.materialCheckBox11.Checked = bool.Parse(states[3]);
-                Form1.Object.materialCheckBox4.Checked = bool.Parse(states[4]);
-                Form1.Object.materialCheckBox17.Checked = bool.Parse(states[5]);
                 Form1.Object.comboBox2.Text = states[6];
 
                 //In-Game Settings
                 Form1.Object.materialCheckBox3.Checked = bool.Parse(states[7]);
-                Form1.Object.materialCheckBox5.Checked = bool.Parse(states[8]);
 
                 //Lobby Settings
                 Form1.Object.materialCheckBox12.Checked = bool.Parse(states[9]);
@@ -149,14 +133,11 @@ namespace LoL_Companion
                 Form1.Object.materialCheckBox19.Checked = bool.Parse(states[21]);
                 Form1.Object.materialSingleLineTextField2.Text = states[22];
                 Form1.Object.materialCheckBox21.Checked = bool.Parse(states[23]);
-                Form1.Object.materialCheckBox6.Checked = bool.Parse(states[24]);
-                Form1.Object.materialCheckBox7.Checked = bool.Parse(states[25]);
-                Form1.Object.materialSingleLineTextField6.Text = states[26];
 
                 //Spell Tracker Settings
-                Form1.Object.materialCheckBox10.Checked = bool.Parse(states[27]);
-                Form1.Object.materialCheckBox1.Checked = bool.Parse(states[28]);
-                Form1.Object.materialCheckBox2.Checked = bool.Parse(states[29]);
+                Form1.Object.materialCheckBox10.Checked = bool.Parse(states[24]);
+                Form1.Object.materialCheckBox1.Checked = bool.Parse(states[25]);
+                Form1.Object.materialCheckBox2.Checked = bool.Parse(states[26]);
             }
         }
     }
