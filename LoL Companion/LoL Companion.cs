@@ -670,7 +670,8 @@ namespace LoL_Companion
                 }
             }
         }
-        private void autoLogin(string region)
+
+        private void AutoLogin(string region)
         {
             terminateLoL();
 
@@ -685,19 +686,12 @@ namespace LoL_Companion
             {
                 try
                 {
-                    string CommandLine = string.Empty;
+                    string CommandLine = GetCommandLine();
+                    if (string.IsNullOrEmpty(CommandLine)) throw new Exception("CommandLine is empty");
 
-                    var process = Process.GetProcessesByName("RiotClientUx").FirstOrDefault();
-
-                    using (var searcher = new ManagementObjectSearcher(
-                           $"SELECT CommandLine FROM Win32_Process WHERE ProcessId = {process.Id}"))
-                    using (var objects = searcher.Get())
-                    {
-                        CommandLine = objects.Cast<ManagementBaseObject>().SingleOrDefault()?["CommandLine"]?.ToString();
-                    }
-
-                    string Pass = Regex.Match(CommandLine, "(--remoting-auth-token=)([^ ]*)( )").Groups[2].Value;
-                    string Port = Regex.Match(CommandLine, "(--app-port=)([^ ]*)( )").Groups[2].Value;
+                    var matches = Regex.Match(CommandLine, "(--remoting-auth-token=)([^ ]*)( )(--app-port=)([^ ]*)( )");
+                    string Pass = matches.Groups[2].Value;
+                    string Port = matches.Groups[5].Value;
 
                     json = ("{" + $"\"username\":\"{comboBox2.Text}\", \"password\":\"{leaguePass}\", \"persistLogin\":false" + "}");
 
@@ -708,20 +702,39 @@ namespace LoL_Companion
                     }
                     isComplete = true;
                 }
-                catch
+                catch (Exception e)
                 {
+                    Console.WriteLine($"Failed to auto login: {e.Message}");
                     Thread.Sleep(2000);
                 }
             }
         }
+
+        private string GetCommandLine()
+        {
+            string CommandLine = string.Empty;
+
+            var process = Process.GetProcessesByName("RiotClientUx").FirstOrDefault();
+            if (process == null) return CommandLine;
+
+            using (var searcher = new ManagementObjectSearcher(
+                   $"SELECT CommandLine FROM Win32_Process WHERE ProcessId = {process.Id}"))
+            using (var objects = searcher.Get())
+            {
+                CommandLine = objects.Cast<ManagementBaseObject>().SingleOrDefault()?["CommandLine"]?.ToString();
+            }
+
+            return CommandLine;
+        }
+
         private void materialRaisedButton30_Click(object sender, EventArgs e)
         {
-            autoLogin("ko_KR");
+            AutoLogin("ko_KR");
         }
 
         private void materialRaisedButton38_Click(object sender, EventArgs e)
         {
-            autoLogin("en_AU");
+            AutoLogin("en_AU");
         }
 
         public string savePath;
