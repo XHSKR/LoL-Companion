@@ -31,16 +31,23 @@ namespace LoL_Companion
         {
             using (StreamWriter writer = new StreamWriter(@"settings.ini"))
             {
+                // [League Location] 섹션
                 writer.WriteLine("[League Location]");
                 writer.WriteLine("\"leagueLocation\"" + " = " + Form1.Object.leagueLocation);
 
+                // [League Client Settings] 섹션
                 writer.WriteLine("\n[League Client Settings]");
+                // materialCheckBox8
                 writer.WriteLine("\"" + Form1.Object.materialCheckBox8.Text + "\" = " + Form1.Object.materialCheckBox8.Checked);
+                // materialCheckBox18, materialCheckBox11, materialCheckBox4, materialCheckBox17 항목은 제외
                 writer.WriteLine("\"Log-in ID\"" + " = " + Form1.Object.comboBox2.Text);
 
+                // [In-Game Settings] 섹션
                 writer.WriteLine("\n[In-Game Settings]");
                 writer.WriteLine("\"" + Form1.Object.materialCheckBox3.Text + "\" = " + Form1.Object.materialCheckBox3.Checked);
+                // materialCheckBox5 항목은 제외
 
+                // [Lobby Settings] 섹션
                 writer.WriteLine("\n[Lobby Settings]");
                 writer.WriteLine("\"" + Form1.Object.materialCheckBox12.Text + "\" = " + Form1.Object.materialCheckBox12.Checked);
                 writer.WriteLine("\"" + Form1.Object.materialRadioButton5.Text + "\" = " + Form1.Object.materialRadioButton5.Checked);
@@ -55,23 +62,26 @@ namespace LoL_Companion
                 writer.WriteLine("\"" + Form1.Object.materialCheckBox16.Text + "\" = " + Form1.Object.materialCheckBox16.Checked);
                 writer.WriteLine("\"" + Form1.Object.materialCheckBox14.Text + "\" = " + Form1.Object.materialCheckBox14.Checked);
                 if (Form1.Object.comboBox6.Text == string.Empty)
-                    writer.WriteLine("\"selectedBanChampionId" + "\" = " + "Champion");
+                    writer.WriteLine("\"selectedBanChampionId\"" + " = " + "Champion");
                 else
-                    writer.WriteLine("\"selectedBanChampionId" + "\" = " + Form1.Object.comboBox6.Text);
+                    writer.WriteLine("\"selectedBanChampionId\"" + " = " + Form1.Object.comboBox6.Text);
                 writer.WriteLine("\"" + Form1.Object.materialCheckBox20.Text + "\" = " + Form1.Object.materialCheckBox20.Checked);
 
+                // [Chat Settings] 섹션
                 writer.WriteLine("\n[Chat Settings]");
                 if (Form1.Object.materialSingleLineTextField1.Text == string.Empty)
-                    writer.WriteLine("\"Ban-Phase" + "\" = " + "Enter your phrase");
+                    writer.WriteLine("\"Ban-Phase\"" + " = " + "Enter your phrase");
                 else
-                    writer.WriteLine("\"Ban-Phase" + "\" = " + Form1.Object.materialSingleLineTextField1.Text);
+                    writer.WriteLine("\"Ban-Phase\"" + " = " + Form1.Object.materialSingleLineTextField1.Text);
                 writer.WriteLine("\"Ban-Phase CheckBox\"" + " = " + Form1.Object.materialCheckBox19.Checked);
                 if (Form1.Object.materialSingleLineTextField2.Text == string.Empty)
                     writer.WriteLine("\"Finalization-Phase\"" + " = " + "Enter your phrase");
                 else
                     writer.WriteLine("\"Finalization-Phase\"" + " = " + Form1.Object.materialSingleLineTextField2.Text);
                 writer.WriteLine("\"Finalization-Phase CheckBox\"" + " = " + Form1.Object.materialCheckBox21.Checked);
+                // materialCheckBox6, materialCheckBox7, Spamming Text 항목은 제외
 
+                // [Spell Tracker Settings] 섹션
                 writer.WriteLine("\n[Spell Tracker Settings]");
                 writer.WriteLine("\"" + Form1.Object.materialCheckBox10.Text + "\" = " + Form1.Object.materialCheckBox10.Checked);
                 writer.WriteLine("\"" + Form1.Object.materialCheckBox1.Text + "\" = " + Form1.Object.materialCheckBox1.Checked);
@@ -93,10 +103,14 @@ namespace LoL_Companion
                 List<String> states = new List<String>();
                 using (var file_read = new StreamReader(@"settings.ini"))
                 {
-                    for (int i = 0; i < File.ReadLines(@"settings.ini").Count(); i++)
+                    int totalLines = File.ReadLines(@"settings.ini").Count();
+                    for (int i = 0; i < totalLines; i++)
                     {
                         string str = file_read.ReadLine();
-                        if (String.IsNullOrWhiteSpace(str) || str.Contains("[") || str.Contains("]")) { }
+                        if (String.IsNullOrWhiteSpace(str) || str.Contains("[") || str.Contains("]"))
+                        {
+                            continue;
+                        }
                         else
                         {
                             states.Add(str.Substring(str.IndexOf("=") + 1).Trim());
@@ -105,39 +119,42 @@ namespace LoL_Companion
                     file_read.Close();
                 }
 
-                //League Location
+                // [League Location] 섹션
                 Form1.Object.leagueLocation = states[0];
 
-                //League Client Settings
+                // [League Client Settings] 섹션
                 Form1.Object.materialCheckBox8.Checked = bool.Parse(states[1]);
-                Form1.Object.comboBox2.Text = states[6];
+                // materialCheckBox18, materialCheckBox11, materialCheckBox4, materialCheckBox17 항목은 제외
+                Form1.Object.comboBox2.Text = states[2];
 
-                //In-Game Settings
-                Form1.Object.materialCheckBox3.Checked = bool.Parse(states[7]);
+                // [In-Game Settings] 섹션
+                Form1.Object.materialCheckBox3.Checked = bool.Parse(states[3]);
+                // materialCheckBox5 항목은 제외
 
-                //Lobby Settings
-                Form1.Object.materialCheckBox12.Checked = bool.Parse(states[9]);
-                Form1.Object.materialRadioButton5.Checked = bool.Parse(states[10]);
-                Form1.Object.materialRadioButton6.Checked = bool.Parse(states[11]);
-                Form1.Object.materialRadioButton7.Checked = bool.Parse(states[12]);
-                Form1.Object.materialRadioButton8.Checked = bool.Parse(states[13]);
-                Form1.Object.materialRadioButton9.Checked = bool.Parse(states[14]);
-                Form1.Object.comboBox3.Text = states[15];
-                Form1.Object.materialCheckBox16.Checked = bool.Parse(states[16]);
-                Form1.Object.materialCheckBox14.Checked = bool.Parse(states[17]);
-                Form1.Object.comboBox6.Text = states[18];
-                Form1.Object.materialCheckBox20.Checked = bool.Parse(states[19]);
+                // [Lobby Settings] 섹션
+                Form1.Object.materialCheckBox12.Checked = bool.Parse(states[4]);
+                Form1.Object.materialRadioButton5.Checked = bool.Parse(states[5]);
+                Form1.Object.materialRadioButton6.Checked = bool.Parse(states[6]);
+                Form1.Object.materialRadioButton7.Checked = bool.Parse(states[7]);
+                Form1.Object.materialRadioButton8.Checked = bool.Parse(states[8]);
+                Form1.Object.materialRadioButton9.Checked = bool.Parse(states[9]);
+                Form1.Object.comboBox3.Text = states[10];
+                Form1.Object.materialCheckBox16.Checked = bool.Parse(states[11]);
+                Form1.Object.materialCheckBox14.Checked = bool.Parse(states[12]);
+                Form1.Object.comboBox6.Text = states[13];
+                Form1.Object.materialCheckBox20.Checked = bool.Parse(states[14]);
 
-                //Chat Settings
-                Form1.Object.materialSingleLineTextField1.Text = states[20];
-                Form1.Object.materialCheckBox19.Checked = bool.Parse(states[21]);
-                Form1.Object.materialSingleLineTextField2.Text = states[22];
-                Form1.Object.materialCheckBox21.Checked = bool.Parse(states[23]);
+                // [Chat Settings] 섹션
+                Form1.Object.materialSingleLineTextField1.Text = states[15];
+                Form1.Object.materialCheckBox19.Checked = bool.Parse(states[16]);
+                Form1.Object.materialSingleLineTextField2.Text = states[17];
+                Form1.Object.materialCheckBox21.Checked = bool.Parse(states[18]);
+                // materialCheckBox6, materialCheckBox7, Spamming Text 항목은 제외
 
-                //Spell Tracker Settings
-                Form1.Object.materialCheckBox10.Checked = bool.Parse(states[24]);
-                Form1.Object.materialCheckBox1.Checked = bool.Parse(states[25]);
-                Form1.Object.materialCheckBox2.Checked = bool.Parse(states[26]);
+                // [Spell Tracker Settings] 섹션
+                Form1.Object.materialCheckBox10.Checked = bool.Parse(states[19]);
+                Form1.Object.materialCheckBox1.Checked = bool.Parse(states[20]);
+                Form1.Object.materialCheckBox2.Checked = bool.Parse(states[21]);
             }
         }
     }
