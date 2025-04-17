@@ -117,6 +117,7 @@
             this.textBox8 = new System.Windows.Forms.TextBox();
             this.materialTabSelector1 = new MaterialSkin.Controls.MaterialTabSelector();
             this.timer3 = new System.Windows.Forms.Timer(this.components);
+            this.materialRaisedButton6 = new MaterialSkin.Controls.MaterialRaisedButton();
             this.materialTabControl1.SuspendLayout();
             this.tabPage1.SuspendLayout();
             this.groupBox9.SuspendLayout();
@@ -229,6 +230,7 @@
             // tabPage1
             // 
             this.tabPage1.BackColor = System.Drawing.Color.White;
+            this.tabPage1.Controls.Add(this.materialRaisedButton6);
             this.tabPage1.Controls.Add(this.materialRaisedButton30);
             this.tabPage1.Controls.Add(this.materialRaisedButton28);
             this.tabPage1.Controls.Add(this.materialRaisedButton22);
@@ -289,7 +291,7 @@
             this.materialRaisedButton22.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
             this.materialRaisedButton22.Depth = 0;
             this.materialRaisedButton22.Icon = null;
-            this.materialRaisedButton22.Location = new System.Drawing.Point(588, 250);
+            this.materialRaisedButton22.Location = new System.Drawing.Point(588, 258);
             this.materialRaisedButton22.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
             this.materialRaisedButton22.MouseState = MaterialSkin.MouseState.HOVER;
             this.materialRaisedButton22.Name = "materialRaisedButton22";
@@ -1467,6 +1469,23 @@
             this.timer3.Interval = 1000;
             this.timer3.Tick += new System.EventHandler(this.timer3_Tick);
             // 
+            // materialRaisedButton6
+            // 
+            this.materialRaisedButton6.AutoSize = true;
+            this.materialRaisedButton6.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
+            this.materialRaisedButton6.Depth = 0;
+            this.materialRaisedButton6.Icon = null;
+            this.materialRaisedButton6.Location = new System.Drawing.Point(588, 170);
+            this.materialRaisedButton6.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
+            this.materialRaisedButton6.MouseState = MaterialSkin.MouseState.HOVER;
+            this.materialRaisedButton6.Name = "materialRaisedButton6";
+            this.materialRaisedButton6.Primary = true;
+            this.materialRaisedButton6.Size = new System.Drawing.Size(155, 36);
+            this.materialRaisedButton6.TabIndex = 117;
+            this.materialRaisedButton6.Text = "Normal Quick Join";
+            this.materialRaisedButton6.UseVisualStyleBackColor = true;
+            this.materialRaisedButton6.Click += new System.EventHandler(this.materialRaisedButton6_Click);
+            // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(96F, 96F);
@@ -1632,6 +1651,7 @@
         public MaterialSkin.Controls.MaterialRaisedButton materialRaisedButton34;
         public MaterialSkin.Controls.MaterialRaisedButton materialRaisedButton36;
         public MaterialSkin.Controls.MaterialRaisedButton materialRaisedButton40;
+        public MaterialSkin.Controls.MaterialRaisedButton materialRaisedButton6;
     }
 }
 

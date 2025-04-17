@@ -16,6 +16,7 @@ using System.Threading;
 using System.Windows.Forms;
 using WindowsInput;
 using System.Linq.Expressions;
+using System.Threading.Tasks;
 
 namespace LoL_Companion
 {
@@ -123,9 +124,6 @@ namespace LoL_Companion
         public List<string[]> Champion = new List<string[]>();
 
         public string leagueLocation = "C:/Riot Games/League of Legends/";
-        public string riotPort, riotPass, completeURL;
-        public string response;
-        public string json = string.Empty;
 
         GlobalKeyboardHook gHook;
 
@@ -344,28 +342,27 @@ namespace LoL_Companion
                 leagueLocation += @"League of Legends\";
             }
 
-            await LCU_Request.GET("/lol-summoner/v1/current-summoner");
-            JObject current_summoner = JObject.Parse(response);
-            summonerName = current_summoner["displayName"].ToString();
-            summonerId = current_summoner["summonerId"].ToString();
+            // Fetch current summoner
+            JObject currentSummoner = await LCU_Request.GET("/lol-summoner/v1/current-summoner");
+            summonerName = currentSummoner["displayName"].ToString();
+            summonerId = currentSummoner["summonerId"].ToString();
 
-            await LCU_Request.GET("/lol-login/v1/login-platform-credentials");
-            JObject login_platform_credentials = JObject.Parse(response);
-            accountId = login_platform_credentials["username"].ToString();
+            // Fetch username
+            JObject loginCreds = await LCU_Request.GET("/lol-login/v1/login-platform-credentials");
+            accountId = loginCreds["username"].ToString();
 
-            await LCU_Request.GET("/riotclient/region-locale");
-            JObject region_locale = JObject.Parse(response);
-            region = region_locale["webRegion"].ToString().ToUpper();
+            // Fetch region/locale
+            JObject regionInfo = await LCU_Request.GET("/riotclient/region-locale");
+            region = regionInfo["webRegion"].ToString().ToUpper();
             email = "Not Available";
 
             bool isRiotServer = region != "STAGING.NA";
 
             if (isRiotServer)
             {
-                //If it's a Riot Server, get the email address of the account.
-                await LCU_Request.GET("/lol-email-verification/v1/email");
-                JObject email_ = JObject.Parse(response);
-                email = email_["email"].ToString();
+                // Fetch verified email
+                JObject emailInfo = await LCU_Request.GET("/lol-email-verification/v1/email");
+                email = emailInfo["email"].ToString();
 
                 // Modify game.cfg file to use Replay API
                 string path = leagueLocation + @"Config\game.cfg";
@@ -393,8 +390,8 @@ namespace LoL_Companion
 
             materialLabel14.Text = $"Summoner's Name: {summonerName}\nAccount ID: {accountId}\nE-mail Address: {email}\nRegion: {region}";
 
-            json = "{ \"lol\": { \"rankedLeagueDivision\": \"I\", \"rankedLeagueQueue\": \"RANKED_SOLO_5x5\", \"rankedLeagueTier\": \"CHALLENGER\" } }";
-            await LCU_Request.PUT("/lol-chat/v1/me");
+            string payload = "{ \"lol\": { \"rankedLeagueDivision\": \"I\", \"rankedLeagueQueue\": \"RANKED_SOLO_5x5\", \"rankedLeagueTier\": \"CHALLENGER\" } }";
+            await LCU_Request.PUT("/lol-chat/v1/me", payload);
         }
 
         private void HandleInGame()
@@ -527,8 +524,7 @@ namespace LoL_Companion
 
             if (draggedTime == 230)
             {
-                json = "0";
-               await LCU_Request.POST("/lol-gameflow/v1/reconnect");
+                await LCU_Request.POST("/lol-gameflow/v1/reconnect", "0");
 
                 materialCheckBox9.Checked = false;
                 draggedTime = 0;
@@ -575,8 +571,9 @@ namespace LoL_Companion
         {
             try
             {
-                json = ("{" + $"\"key\":\"backgroundSkinId\", \"value\":\"{materialSingleLineTextField3.Text}\"" + "}");
-                await LCU_Request.POST("/lol-summoner/v1/current-summoner/summoner-profile");
+                string payload = $"{{\"key\":\"backgroundSkinId\", \"value\":\"{materialSingleLineTextField3.Text}\"}}";
+                await LCU_Request.POST("/lol-summoner/v1/current-summoner/summoner-profile", payload);
+
             }
             catch
             {
@@ -606,10 +603,11 @@ namespace LoL_Companion
         {
             if (System.IO.File.Exists(@"items.js"))
             {
-                var file_read = new StreamReader(@"items.js");
-                json = file_read.ReadLine();
-                await LCU_Request.PUT("/lol-item-sets/v1/item-sets/" + summonerId + "/sets");
-                file_read.Close();
+                using (var fileReader = new StreamReader(@"items.js"))
+                {
+                    string payload = fileReader.ReadLine();
+                    await LCU_Request.PUT($"/lol-item-sets/v1/item-sets/{summonerId}/sets", payload);
+                }
             }
         }
 
@@ -622,8 +620,7 @@ namespace LoL_Companion
         {
             try
             {
-                json = "0";
-                await LCU_Request.POST("/riotclient/kill-and-restart-ux");
+                await LCU_Request.POST("/riotclient/kill-and-restart-ux", "0");
             }
             catch
             {
@@ -635,11 +632,27 @@ namespace LoL_Companion
         {
             try
             {
-                json = "{ \"customGameLobby\": { \"configuration\": { \"gameMode\": \"PRACTICETOOL\", \"gameMutator\": \"\", \"gameServerRegion\": \"\", \"mapId\": 11, \"mutators\": {\"id\": 1}, \"spectatorPolicy\": \"AllAllowed\", \"teamSize\": 5    },    \"lobbyName\": \"PRACTICETOOL NO LIMIT\",    \"lobbyPassword\": null  },  \"isCustom\": true }";
-                await LCU_Request.POST("/lol-lobby/v2/lobby");
+                string payload = @"
+                {
+                  ""customGameLobby"": {
+                    ""configuration"": {
+                      ""gameMode"": ""PRACTICETOOL"",
+                      ""gameMutator"": """",
+                      ""gameServerRegion"": """",
+                      ""mapId"": 11,
+                      ""mutators"": { ""id"": 1 },
+                      ""spectatorPolicy"": ""AllAllowed"",
+                      ""teamSize"": 5
+                    },
+                    ""lobbyName"": ""PRACTICETOOL NO LIMIT"",
+                    ""lobbyPassword"": null
+                  },
+                  ""isCustom"": true
+                }";
+                await LCU_Request.POST("/lol-lobby/v2/lobby", payload);
 
-                json = "0";
-                await LCU_Request.POST("/lol-lobby/v1/lobby/custom/start-champ-select");
+                await LCU_Request.POST("/lol-lobby/v1/lobby/custom/start-champ-select", "0");
+
             }
             catch
             {
@@ -693,9 +706,10 @@ namespace LoL_Companion
                     string Pass = matches.Groups[2].Value;
                     string Port = matches.Groups[5].Value;
 
-                    json = ("{" + $"\"username\":\"{comboBox2.Text}\", \"password\":\"{leaguePass}\", \"persistLogin\":false" + "}");
+                    string payload = $"{{\"username\":\"{comboBox2.Text}\", \"password\":\"{leaguePass}\", \"persistLogin\":false}}";
 
-                    byte[] bytes = Encoding.UTF8.GetBytes(json); //convert from json to byte;
+                    byte[] bytes = Encoding.UTF8.GetBytes(payload); // convert from payload string to byte[]
+
                     using (var client = new WebClient { Credentials = new NetworkCredential("riot", Pass) })
                     {
                         client.UploadData("https://127.0.0.1:" + Port + "/rso-auth/v1/session/credentials", "PUT", bytes);
@@ -866,38 +880,60 @@ namespace LoL_Companion
             comboBox6.Text = String.Empty;
         }
 
+        private async void materialRaisedButton6_Click(object sender, EventArgs e)
+        {
+            // 큐 생성
+            string payload1 = "{ \"queueId\": 400 }";
+            await LCU_Request.POST("/lol-lobby/v2/lobby", payload1);
+
+            // 포지션 설정
+            string payload2 = "{ \"firstPreference\":\"JUNGLE\", \"secondPreference\":\"MIDDLE\" }";
+            await LCU_Request.PUT("/lol-lobby/v2/lobby/members/localMember/position-preferences", payload2);
+
+            // 큐 돌리기 (matchmaking 시작)
+            string payload3 = "0";
+            await LCU_Request.POST("/lol-lobby/v2/lobby/matchmaking/search", payload3);
+        }
+
         private async void materialRaisedButton20_Click(object sender, EventArgs e)
         {
-            json = ("{" + $"\"queueId\": 420" + "}");
-           await LCU_Request.POST("/lol-lobby/v2/lobby");
+            // 큐 생성
+            string payload1 = "{ \"queueId\": 420 }";
+            await LCU_Request.POST("/lol-lobby/v2/lobby", payload1);
 
-            json = "{ \"firstPreference\":\"JUNGLE\", \"secondPreference\":\"MIDDLE\" }";
-            await LCU_Request.PUT("/lol-lobby/v2/lobby/members/localMember/position-preferences");
+            // 포지션 설정
+            string payload2 = "{ \"firstPreference\":\"JUNGLE\", \"secondPreference\":\"MIDDLE\" }";
+            await LCU_Request.PUT("/lol-lobby/v2/lobby/members/localMember/position-preferences", payload2);
 
-            //큐 돌리기
-            json = "0";
-            await LCU_Request.POST("/lol-lobby/v2/lobby/matchmaking/search");
+            // 큐 돌리기 (matchmaking 시작)
+            string payload3 = "0";
+            await LCU_Request.POST("/lol-lobby/v2/lobby/matchmaking/search", payload3);
         }
 
         private async void materialRaisedButton28_Click(object sender, EventArgs e)
         {
             try
             {
-                await LCU_Request.GET("/lol-summoner/v1/current-summoner");
-                JObject current_summoner = JObject.Parse(response);
-                string summonerId = current_summoner["summonerId"].ToString();
-                await LCU_Request.GET("/lol-item-sets/v1/item-sets/" + summonerId + "/sets");
-                Clipboard.SetText(response);
-            }
-            catch
-            {
-                MessageBox.Show("Error while requesting GET method.");
-            }
+                // 1) 현재 소환사 정보 조회
+                JObject currentSummoner = await LCU_Request.GET("/lol-summoner/v1/current-summoner");
+                string summonerId = currentSummoner["summonerId"].ToString();
 
-            using (StreamWriter writer = new StreamWriter(@"items.js"))
+                // 2) 해당 소환사의 아이템 세트 조회
+                JObject itemSets = await LCU_Request.GET($"/lol-item-sets/v1/item-sets/{summonerId}/sets");
+                string itemSetsJson = itemSets.ToString();
+
+                // 3) 클립보드에 복사
+                Clipboard.SetText(itemSetsJson);
+
+                // 4) 파일에 저장
+                using (var writer = new StreamWriter(@"items.js"))
+                {
+                    writer.WriteLine(itemSetsJson);
+                }
+            }
+            catch (Exception ex)
             {
-                writer.WriteLine(response);
-                writer.Close();
+                MessageBox.Show("GET 요청 중 오류가 발생했습니다: " + ex.Message);
             }
         }
 
@@ -1032,8 +1068,8 @@ namespace LoL_Companion
                 {
                     if (isClientRunning)
                     {
-                        json = "{ \"firstPreference\":\"" + firstPreference + "\", \"secondPreference\":\"FILL\" }";
-                       await LCU_Request.PUT("/lol-lobby/v2/lobby/members/localMember/position-preferences");
+                        string payload = $"{{ \"firstPreference\":\"{firstPreference}\", \"secondPreference\":\"FILL\" }}";
+                        await LCU_Request.PUT("/lol-lobby/v2/lobby/members/localMember/position-preferences", payload);
                     }
                 }
                 catch { }

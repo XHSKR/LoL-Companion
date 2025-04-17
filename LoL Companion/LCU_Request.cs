@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Newtonsoft.Json.Linq;
+using System;
 using System.Diagnostics;
 using System.Linq;
 using System.Management;
@@ -29,9 +30,9 @@ namespace LoL_Companion
             };
         }
 
-        private string riotPass;
-        private string riotPort;
-        private string completeURL;
+        public static string riotPass;
+        public static string riotPort;
+        public static string completeURL;
 
         private void GetRiotCredentials(string plugIn)
         {
@@ -60,7 +61,7 @@ namespace LoL_Companion
             completeURL = $"https://127.0.0.1:{riotPort}{plugIn}";
         }
 
-        public async Task GET(string plugIn)
+        public async Task<JObject> GET(string plugIn)
         {
             GetRiotCredentials(plugIn);
 
@@ -70,35 +71,55 @@ namespace LoL_Companion
                 using (var response = await _httpClient.SendAsync(request).ConfigureAwait(false))
                 {
                     response.EnsureSuccessStatusCode();
-                    Form1.Object.response = await response.Content
-                                                         .ReadAsStringAsync()
-                                                         .ConfigureAwait(false);
+                    string jsonString = await response.Content
+                                            .ReadAsStringAsync()
+                                            .ConfigureAwait(false);
+                    return JObject.Parse(jsonString);
                 }
             }
         }
 
-        public async Task POST(string plugIn)
+        public async Task<JArray> GET_Array(string plugIn)
         {
-            await SendWithBodyAsync("POST", plugIn).ConfigureAwait(false);
+            GetRiotCredentials(plugIn);
+
+            using (var request = new HttpRequestMessage(HttpMethod.Get, completeURL))
+            {
+                AddBasicAuthHeader(request);
+                using (var response = await _httpClient.SendAsync(request).ConfigureAwait(false))
+                {
+                    response.EnsureSuccessStatusCode();
+                    string jsonString = await response.Content
+                                            .ReadAsStringAsync()
+                                            .ConfigureAwait(false);
+                    return JArray.Parse(jsonString);
+                }
+            }
         }
 
-        public async Task PUT(string plugIn)
+        public async Task POST(string plugIn, string jsonBody)
         {
-            await SendWithBodyAsync("PUT", plugIn).ConfigureAwait(false);
+            await SendWithBodyAsync("POST", plugIn, jsonBody).ConfigureAwait(false);
         }
 
-        public async Task PATCH(string plugIn)
+        public async Task PUT(string plugIn, string jsonBody)
         {
-            await SendWithBodyAsync("PATCH", plugIn).ConfigureAwait(false);
+            await SendWithBodyAsync("PUT", plugIn, jsonBody).ConfigureAwait(false);
         }
 
-        private async Task SendWithBodyAsync(string method, string plugIn)
+        public async Task PATCH(string plugIn, string jsonBody)
+        {
+            await SendWithBodyAsync("PATCH", plugIn, jsonBody).ConfigureAwait(false);
+        }
+
+        private async Task SendWithBodyAsync(string method, string plugIn, string bodyJson)
         {
             GetRiotCredentials(plugIn);
 
             using (var request = new HttpRequestMessage(new HttpMethod(method), completeURL))
             {
-                request.Content = new StringContent(Form1.Object.json, Encoding.UTF8, "application/json");
+                // 파라미터로 받은 bodyJson 사용
+                request.Content = new StringContent(bodyJson, Encoding.UTF8, "application/json");
                 AddBasicAuthHeader(request);
 
                 using (var response = await _httpClient.SendAsync(request).ConfigureAwait(false))

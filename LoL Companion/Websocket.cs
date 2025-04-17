@@ -42,8 +42,8 @@ namespace LoL_Companion
 
         public void connectToLCU()
         {
-            LCU = new WebSocket($"wss://127.0.0.1:{Form1.Object.riotPort}/", "wamp");
-            LCU.SetCredentials("riot", Form1.Object.riotPass, true);
+            LCU = new WebSocket($"wss://127.0.0.1:{LCU_Request.riotPort}/", "wamp");
+            LCU.SetCredentials("riot", LCU_Request.riotPass, true);
             LCU.SslConfiguration.EnabledSslProtocols = SslProtocols.Tls12;
             LCU.SslConfiguration.ServerCertificateValidationCallback = (send, certificate, chain, sslPolicyErrors) => true;
             LCU.OnMessage += async (s, e) =>
@@ -81,17 +81,15 @@ namespace LoL_Companion
                     }
 
                     // Get QueueId
-                    await LCU_Request.GET("/lol-gameflow/v1/gameflow-metadata/player-status");
-                    JObject player_status = JObject.Parse(Form1.Object.response);
-                    string queueId = player_status["currentLobbyStatus"]["queueId"].ToString();
+                    JObject playerStatus = await LCU_Request.GET("/lol-gameflow/v1/gameflow-metadata/player-status");
+                    string queueId = playerStatus["currentLobbyStatus"]["queueId"].ToString();
 
                     if (data == "ReadyCheck") //큐가 잡히면 자동수락
                     {
                         if (Form1.Object.materialCheckBox8.Checked)
                         {
                             minimiseClient_conditional();
-                            Form1.Object.json = "0";
-                            await LCU_Request.POST("/lol-matchmaking/v1/ready-check/accept");
+                            await LCU_Request.POST("/lol-matchmaking/v1/ready-check/accept", "0");
                         }
 
                         //로비로 돌아올 경우 List와 Variable 초기화
@@ -137,8 +135,7 @@ namespace LoL_Companion
                                 if (Form1.Object.materialRadioButton9.Checked)
                                     position = "서포터 | Support | 辅助";
 
-                                await LCU_Request.GET("/lol-chat/v1/conversations");
-                                JArray jsonArray = JArray.Parse(Form1.Object.response);
+                                JArray jsonArray = await LCU_Request.GET_Array("/lol-chat/v1/conversations");
 
                                 while (!isChatAvailable)
                                 {
@@ -175,13 +172,11 @@ namespace LoL_Companion
                 if (uri.Contains("/lol-champ-select/v1/summoners/"))
                 {
                     // Get QueueId
-                    await LCU_Request.GET("/lol-gameflow/v1/gameflow-metadata/player-status");
-                    JObject player_status = JObject.Parse(Form1.Object.response);
-                    string queueId = player_status["currentLobbyStatus"]["queueId"].ToString();
+                    JObject playerStatus = await LCU_Request.GET("/lol-gameflow/v1/gameflow-metadata/player-status");
+                    string queueId = playerStatus["currentLobbyStatus"]["queueId"].ToString();
 
-                    //Find localPlayerCellId
-                    await LCU_Request.GET("/lol-champ-select/v1/session");
-                    JObject session = JObject.Parse(Form1.Object.response);
+                    // Find localPlayerCellId
+                    JObject session = await LCU_Request.GET("/lol-champ-select/v1/session");
                     string localPlayerCellId = session["localPlayerCellId"].ToString();
 
                     //Get variables to determine the correct champion pick time
@@ -202,9 +197,8 @@ namespace LoL_Companion
                             if (Form1.Object.materialCheckBox19.Checked)
                                 sendChatinChampSelect(Form1.Object.materialSingleLineTextField1.Text);
 
-                            //Ban Champion
-                            Form1.Object.json = "{" + $"\"championId\":{Form1.Object.selectedBanChampionId}, \"completed\": true" + "}";
-                            await LCU_Request.PATCH($"/lol-champ-select/v1/session/actions/{localPlayerCellId}");
+                            string payload = $"{{\"championId\":{Form1.Object.selectedBanChampionId}, \"completed\": true}}";
+                            await LCU_Request.PATCH($"/lol-champ-select/v1/session/actions/{localPlayerCellId}", payload);
 
                             minimiseClient_conditional();
                         }
@@ -225,9 +219,8 @@ namespace LoL_Companion
 
         private async Task pickChampion(string queueType)
         {
-            //Find my CellId (pick order)
-            await LCU_Request.GET("/lol-champ-select/v1/session");
-            JObject session = JObject.Parse(Form1.Object.response);
+            // Find my CellId (pick order)
+            JObject session = await LCU_Request.GET("/lol-champ-select/v1/session");
             string localPlayerCellId = session["localPlayerCellId"].ToString();
 
             string id_ = "";
@@ -247,29 +240,30 @@ namespace LoL_Companion
 
             if (queueType == "draft")
             {
-                Form1.Object.json = "{" + $"\"championId\":{Form1.Object.selectedChampionId}, \"completed\": true" + "}";
-                await LCU_Request.PATCH($"/lol-champ-select/v1/session/actions/{id_}");
+                string payload = $"{{\"championId\":{Form1.Object.selectedChampionId}, \"completed\": true}}";
+                await LCU_Request.PATCH($"/lol-champ-select/v1/session/actions/{id_}", payload);
             }
             else
             {
+                string payload;
+
                 if (Form1.Object.materialCheckBox16.Checked) // lock-in
-                    Form1.Object.json = "{" + $"\"championId\":{Form1.Object.selectedChampionId}, \"completed\": true" + "}";
+                    payload = $"{{\"championId\":{Form1.Object.selectedChampionId}, \"completed\": true}}";
                 else // no lock-in
-                    Form1.Object.json = "{" + $"\"championId\":{Form1.Object.selectedChampionId}, \"completed\": false" + "}";
+                    payload = $"{{\"championId\":{Form1.Object.selectedChampionId}, \"completed\": false}}";
 
                 if (queueType == "blind")
-                    await LCU_Request.PATCH($"/lol-champ-select/v1/session/actions/{localPlayerCellId}");
+                    await LCU_Request.PATCH($"/lol-champ-select/v1/session/actions/{localPlayerCellId}", payload);
 
                 if (queueType == "practice")
-                    await LCU_Request.PATCH($"/lol-champ-select/v1/session/actions/1");
+                    await LCU_Request.PATCH($"/lol-champ-select/v1/session/actions/1", payload);
             }
         }
 
         bool isChatAvailable = false;
         private async void sendChatinChampSelect(string body)
         {
-            await LCU_Request.GET("/lol-chat/v1/conversations");
-            JArray jsonArray = JArray.Parse(Form1.Object.response);
+            JArray jsonArray = await LCU_Request.GET_Array("/lol-chat/v1/conversations");
             string id = "";
 
             foreach (JObject item in jsonArray)
@@ -287,15 +281,15 @@ namespace LoL_Companion
             {
                 isChatAvailable = true;
 
-                Form1.Object.json = $"{{\"type\":\"chat\", \"isHistorical\":false, \"body\":\"{body}\"}}";
-                await LCU_Request.POST($"/lol-chat/v1/conversations/{id}/messages");
+                string payload = $"{{\"type\":\"chat\", \"isHistorical\":false, \"body\":\"{body}\"}}";
+                await LCU_Request.POST($"/lol-chat/v1/conversations/{id}/messages", payload);
             }
         }
 
         public void debug()
         {
-            LCU_Debug = new WebSocket($"wss://127.0.0.1:{Form1.Object.riotPort}/", "wamp");
-            LCU_Debug.SetCredentials("riot", Form1.Object.riotPass, true);
+            LCU_Debug = new WebSocket($"wss://127.0.0.1:{LCU_Request.riotPort}/", "wamp");
+            LCU_Debug.SetCredentials("riot", LCU_Request.riotPass, true);
             LCU_Debug.SslConfiguration.EnabledSslProtocols = SslProtocols.Tls12;
             LCU_Debug.SslConfiguration.ServerCertificateValidationCallback = (send, certificate, chain, sslPolicyErrors) => true;
             LCU_Debug.OnMessage += (s, e) =>
