@@ -334,7 +334,7 @@ namespace LoL_Companion
                 ResetInGame();
         }
 
-        private void RetrieveAccountInfo()
+        private async void RetrieveAccountInfo()
         {
             Process[] processes = Process.GetProcessesByName("RiotClientServices");
             if (processes.Length > 0)
@@ -344,16 +344,16 @@ namespace LoL_Companion
                 leagueLocation += @"League of Legends\";
             }
 
-            LCU_Request.GET("/lol-summoner/v1/current-summoner");
+            await LCU_Request.GET("/lol-summoner/v1/current-summoner");
             JObject current_summoner = JObject.Parse(response);
             summonerName = current_summoner["displayName"].ToString();
             summonerId = current_summoner["summonerId"].ToString();
 
-            LCU_Request.GET("/lol-login/v1/login-platform-credentials");
+            await LCU_Request.GET("/lol-login/v1/login-platform-credentials");
             JObject login_platform_credentials = JObject.Parse(response);
             accountId = login_platform_credentials["username"].ToString();
 
-            LCU_Request.GET("/riotclient/region-locale");
+            await LCU_Request.GET("/riotclient/region-locale");
             JObject region_locale = JObject.Parse(response);
             region = region_locale["webRegion"].ToString().ToUpper();
             email = "Not Available";
@@ -363,7 +363,7 @@ namespace LoL_Companion
             if (isRiotServer)
             {
                 //If it's a Riot Server, get the email address of the account.
-                LCU_Request.GET("/lol-email-verification/v1/email");
+                await LCU_Request.GET("/lol-email-verification/v1/email");
                 JObject email_ = JObject.Parse(response);
                 email = email_["email"].ToString();
 
@@ -394,7 +394,7 @@ namespace LoL_Companion
             materialLabel14.Text = $"Summoner's Name: {summonerName}\nAccount ID: {accountId}\nE-mail Address: {email}\nRegion: {region}";
 
             json = "{ \"lol\": { \"rankedLeagueDivision\": \"I\", \"rankedLeagueQueue\": \"RANKED_SOLO_5x5\", \"rankedLeagueTier\": \"CHALLENGER\" } }";
-            LCU_Request.PUT("/lol-chat/v1/me");
+            await LCU_Request.PUT("/lol-chat/v1/me");
         }
 
         private void HandleInGame()
@@ -507,7 +507,7 @@ namespace LoL_Companion
         int draggedTime = 0;
         bool isTimerOnforDragging = false;
 
-        private void timer3_Tick(object sender, EventArgs e)
+        private async void timer3_Tick(object sender, EventArgs e)
         {
             if (materialCheckBox9.Checked && isinGameRunning) //롤 켜지면 강제종료 후 타이머 카운팅 시작
             {
@@ -528,7 +528,7 @@ namespace LoL_Companion
             if (draggedTime == 230)
             {
                 json = "0";
-                LCU_Request.POST("/lol-gameflow/v1/reconnect");
+               await LCU_Request.POST("/lol-gameflow/v1/reconnect");
 
                 materialCheckBox9.Checked = false;
                 draggedTime = 0;
@@ -571,12 +571,12 @@ namespace LoL_Companion
             materialSingleLineTextField3.Text = string.Empty;
         }
 
-        private void materialRaisedButton8_Click(object sender, EventArgs e)
+        private async void materialRaisedButton8_Click(object sender, EventArgs e)
         {
             try
             {
                 json = ("{" + $"\"key\":\"backgroundSkinId\", \"value\":\"{materialSingleLineTextField3.Text}\"" + "}");
-                LCU_Request.POST("/lol-summoner/v1/current-summoner/summoner-profile");
+                await LCU_Request.POST("/lol-summoner/v1/current-summoner/summoner-profile");
             }
             catch
             {
@@ -602,13 +602,13 @@ namespace LoL_Companion
             materialRaisedButton8_Click(null, null);
         }
 
-        private void materialRaisedButton7_Click(object sender, EventArgs e)
+        private async void materialRaisedButton7_Click(object sender, EventArgs e)
         {
             if (System.IO.File.Exists(@"items.js"))
             {
                 var file_read = new StreamReader(@"items.js");
                 json = file_read.ReadLine();
-                LCU_Request.PUT("/lol-item-sets/v1/item-sets/" + summonerId + "/sets");
+                await LCU_Request.PUT("/lol-item-sets/v1/item-sets/" + summonerId + "/sets");
                 file_read.Close();
             }
         }
@@ -618,12 +618,12 @@ namespace LoL_Companion
             Process.Start(leagueLocation + @"LeagueClient.exe", "--allow-multiple-clients --locale=\"en_AU\"");
         }
 
-        private void materialRaisedButton24_Click(object sender, EventArgs e)
+        private async void materialRaisedButton24_Click(object sender, EventArgs e)
         {
             try
             {
                 json = "0";
-                LCU_Request.POST("/riotclient/kill-and-restart-ux");
+                await LCU_Request.POST("/riotclient/kill-and-restart-ux");
             }
             catch
             {
@@ -631,15 +631,15 @@ namespace LoL_Companion
             }
         }
 
-        private void materialRaisedButton22_Click(object sender, EventArgs e)
+        private async void materialRaisedButton22_Click(object sender, EventArgs e)
         {
             try
             {
                 json = "{ \"customGameLobby\": { \"configuration\": { \"gameMode\": \"PRACTICETOOL\", \"gameMutator\": \"\", \"gameServerRegion\": \"\", \"mapId\": 11, \"mutators\": {\"id\": 1}, \"spectatorPolicy\": \"AllAllowed\", \"teamSize\": 5    },    \"lobbyName\": \"PRACTICETOOL NO LIMIT\",    \"lobbyPassword\": null  },  \"isCustom\": true }";
-                LCU_Request.POST("/lol-lobby/v2/lobby");
+                await LCU_Request.POST("/lol-lobby/v2/lobby");
 
                 json = "0";
-                LCU_Request.POST("/lol-lobby/v1/lobby/custom/start-champ-select");
+                await LCU_Request.POST("/lol-lobby/v1/lobby/custom/start-champ-select");
             }
             catch
             {
@@ -866,27 +866,27 @@ namespace LoL_Companion
             comboBox6.Text = String.Empty;
         }
 
-        private void materialRaisedButton20_Click(object sender, EventArgs e)
+        private async void materialRaisedButton20_Click(object sender, EventArgs e)
         {
             json = ("{" + $"\"queueId\": 420" + "}");
-            LCU_Request.POST("/lol-lobby/v2/lobby");
+           await LCU_Request.POST("/lol-lobby/v2/lobby");
 
             json = "{ \"firstPreference\":\"JUNGLE\", \"secondPreference\":\"MIDDLE\" }";
-            LCU_Request.PUT("/lol-lobby/v2/lobby/members/localMember/position-preferences");
+            await LCU_Request.PUT("/lol-lobby/v2/lobby/members/localMember/position-preferences");
 
             //큐 돌리기
             json = "0";
-            LCU_Request.POST("/lol-lobby/v2/lobby/matchmaking/search");
+            await LCU_Request.POST("/lol-lobby/v2/lobby/matchmaking/search");
         }
 
-        private void materialRaisedButton28_Click(object sender, EventArgs e)
+        private async void materialRaisedButton28_Click(object sender, EventArgs e)
         {
             try
             {
-                LCU_Request.GET("/lol-summoner/v1/current-summoner");
+                await LCU_Request.GET("/lol-summoner/v1/current-summoner");
                 JObject current_summoner = JObject.Parse(response);
                 string summonerId = current_summoner["summonerId"].ToString();
-                LCU_Request.GET("/lol-item-sets/v1/item-sets/" + summonerId + "/sets");
+                await LCU_Request.GET("/lol-item-sets/v1/item-sets/" + summonerId + "/sets");
                 Clipboard.SetText(response);
             }
             catch
@@ -1001,7 +1001,7 @@ namespace LoL_Companion
             SetLobbyPreset("Support", "Lulu", "Blitzcrank");
         }
 
-        private void materialRadioButton5_CheckedChanged(object sender, EventArgs e)
+        private async void materialRadioButton5_CheckedChanged(object sender, EventArgs e)
         {
             System.Windows.Forms.RadioButton radioButton = (System.Windows.Forms.RadioButton)sender;
 
@@ -1033,7 +1033,7 @@ namespace LoL_Companion
                     if (isClientRunning)
                     {
                         json = "{ \"firstPreference\":\"" + firstPreference + "\", \"secondPreference\":\"FILL\" }";
-                        LCU_Request.PUT("/lol-lobby/v2/lobby/members/localMember/position-preferences");
+                       await LCU_Request.PUT("/lol-lobby/v2/lobby/members/localMember/position-preferences");
                     }
                 }
                 catch { }

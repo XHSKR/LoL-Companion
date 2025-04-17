@@ -1,65 +1,124 @@
-﻿using System.Diagnostics;
+﻿using System;
+using System.Diagnostics;
 using System.Linq;
 using System.Management;
-using System.Net;
+using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 
 namespace LoL_Companion
 {
-    class LCU_Request
+    class LCU_Request : IDisposable
     {
-        public LCU_Request() { } //Create a default constructor
+        private readonly HttpClient _httpClient;
+
+        public LCU_Request()
+        {
+            // 자체 서명된 인증서 허용 (로컬 호출 전용)
+            var handler = new HttpClientHandler
+            {
+                // .NET Framework 4.7.2에서는 self-signed cert 허용 설정
+                ServerCertificateCustomValidationCallback = (sender, cert, chain, errors) => true
+            };
+
+            _httpClient = new HttpClient(handler)
+            {
+                Timeout = TimeSpan.FromSeconds(30) // 필요에 따라 조정
+            };
+        }
+
+        private string riotPass;
+        private string riotPort;
+        private string completeURL;
 
         private void GetRiotCredentials(string plugIn)
         {
             var process = Process.GetProcessesByName("LeagueClientUx").FirstOrDefault();
-            string CommandLine;
+            if (process == null)
+                throw new InvalidOperationException("LeagueClientUx 프로세스를 찾을 수 없습니다.");
 
+            string commandLine;
             using (var searcher = new ManagementObjectSearcher(
-               $"SELECT CommandLine FROM Win32_Process WHERE ProcessId = {process.Id}"))
-            using (var objects = searcher.Get())
-                CommandLine = objects.Cast<ManagementBaseObject>().SingleOrDefault()?["CommandLine"]?.ToString();
+                $"SELECT CommandLine FROM Win32_Process WHERE ProcessId = {process.Id}"))
+            using (var results = searcher.Get())
+            {
+                commandLine = results.Cast<ManagementBaseObject>()
+                                     .SingleOrDefault()?["CommandLine"]?.ToString()
+                              ?? throw new InvalidOperationException("CommandLine 정보를 읽어올 수 없습니다.");
+            }
 
-            Form1.Object.riotPass = Regex.Match(CommandLine, "(\"--remoting-auth-token=)([^\"]*)(\")").Groups[2].Value;
-            Form1.Object.riotPort = Regex.Match(CommandLine, "(\"--app-port=)([^\"]*)(\")").Groups[2].Value;
-            Form1.Object.completeURL = "https://127.0.0.1:" + Form1.Object.riotPort + plugIn;
+            riotPass = Regex.Match(commandLine,
+                                   @"--remoting-auth-token=([^""]+)")
+                            .Groups[1].Value;
+
+            riotPort = Regex.Match(commandLine,
+                                   @"--app-port=(\d+)")
+                            .Groups[1].Value;
+
+            completeURL = $"https://127.0.0.1:{riotPort}{plugIn}";
         }
 
-        public void GET(string plugIn)
+        public async Task GET(string plugIn)
         {
             GetRiotCredentials(plugIn);
 
-            using (var client = new WebClient { Credentials = new NetworkCredential("riot", Form1.Object.riotPass) })
+            using (var request = new HttpRequestMessage(HttpMethod.Get, completeURL))
             {
-                var responseNotConverted = client.DownloadData(Form1.Object.completeURL);
-                Form1.Object.response = Encoding.UTF8.GetString(responseNotConverted);
+                AddBasicAuthHeader(request);
+                using (var response = await _httpClient.SendAsync(request).ConfigureAwait(false))
+                {
+                    response.EnsureSuccessStatusCode();
+                    Form1.Object.response = await response.Content
+                                                         .ReadAsStringAsync()
+                                                         .ConfigureAwait(false);
+                }
             }
         }
 
-        private void SendRequest(string plugIn, string method)
+        public async Task POST(string plugIn)
+        {
+            await SendWithBodyAsync("POST", plugIn).ConfigureAwait(false);
+        }
+
+        public async Task PUT(string plugIn)
+        {
+            await SendWithBodyAsync("PUT", plugIn).ConfigureAwait(false);
+        }
+
+        public async Task PATCH(string plugIn)
+        {
+            await SendWithBodyAsync("PATCH", plugIn).ConfigureAwait(false);
+        }
+
+        private async Task SendWithBodyAsync(string method, string plugIn)
         {
             GetRiotCredentials(plugIn);
 
-            byte[] bytes = Encoding.UTF8.GetBytes(Form1.Object.json); //convert from json to byte
+            using (var request = new HttpRequestMessage(new HttpMethod(method), completeURL))
+            {
+                request.Content = new StringContent(Form1.Object.json, Encoding.UTF8, "application/json");
+                AddBasicAuthHeader(request);
 
-            using (var client = new WebClient { Credentials = new NetworkCredential("riot", Form1.Object.riotPass) })
-                client.UploadData(Form1.Object.completeURL, method, bytes);
+                using (var response = await _httpClient.SendAsync(request).ConfigureAwait(false))
+                {
+                    response.EnsureSuccessStatusCode();
+                }
+            }
         }
 
-        public void POST(string plugIn)
+        private void AddBasicAuthHeader(HttpRequestMessage request)
         {
-            SendRequest(plugIn, "POST");
+            var token = Convert.ToBase64String(
+                Encoding.ASCII.GetBytes($"riot:{riotPass}"));
+            request.Headers.Authorization =
+                new AuthenticationHeaderValue("Basic", token);
         }
 
-        public void PUT(string plugIn)
+        public void Dispose()
         {
-            SendRequest(plugIn, "PUT");
-        }
-
-        public void PATCH(string plugIn)
-        {
-            SendRequest(plugIn, "PATCH");
+            _httpClient.Dispose();
         }
     }
 }
