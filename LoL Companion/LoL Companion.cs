@@ -56,38 +56,37 @@ namespace LoL_Companion
             gHook.hook();
         }
 
-        private void Form1_Shown(object sender, EventArgs e)
+        // HttpClient 재사용
+        private static readonly HttpClient httpClient = new HttpClient();
+
+        // 챔피언 이름 → 키 매핑
+        private Dictionary<string, string> championMap;
+
+        private async void Form1_Shown(object sender, EventArgs e)
         {
+            // 1) 버전 정보 가져오기
             string versionUrl = "https://ddragon.leagueoflegends.com/api/versions.json";
-            string championUrlFormat = "http://ddragon.leagueoflegends.com/cdn/{0}/data/en_US/champion.json";
+            string versionResponse = await httpClient.GetStringAsync(versionUrl);
+            string currentVersion = JArray.Parse(versionResponse).First.ToString();
 
-            using (HttpClient client = new HttpClient())
-            {
-                string versionResponse = client.GetStringAsync(versionUrl).GetAwaiter().GetResult();
-                string currentVersion = JArray.Parse(versionResponse)?.FirstOrDefault()?.ToString();
+            // 2) 챔피언 데이터 가져오기
+            string championUrl = $"http://ddragon.leagueoflegends.com/cdn/{currentVersion}/data/en_US/champion.json";
+            string championResponse = await httpClient.GetStringAsync(championUrl);
+            JObject root = JObject.Parse(championResponse);
 
-                string championUrl = string.Format(championUrlFormat, currentVersion);
+            // 3) Dictionary로 매핑 (Name → Key)
+            championMap = root["data"]
+                .Values()
+                .ToDictionary(
+                    ch => ch["name"].ToString(),
+                    ch => ch["key"].ToString()
+                );
 
-                string championResponse = client.GetStringAsync(championUrl).GetAwaiter().GetResult();
-                JObject root = JObject.Parse(championResponse);
-                var champions = root["data"].Values();
-
-                foreach (var champion in champions)
-                {
-                    string name = champion["name"].ToString();
-                    string key = champion["key"].ToString();
-                    string[] values = { name, key };
-                    Champion.Add(values);
-                }
-            }
-
-            //Add Champion Name to the combobox
-            for (int i = 0; i < Champion.Count; i++)
-            {
-                comboBox3.Items.Add(Champion[i][0]);
-                comboBox4.Items.Add(Champion[i][0]);
-                comboBox6.Items.Add(Champion[i][0]);
-            }
+            // 4) 콤보박스에 이름 추가
+            string[] names = championMap.Keys.ToArray();
+            comboBox3.Items.AddRange(names);
+            comboBox4.Items.AddRange(names);
+            comboBox6.Items.AddRange(names);
 
             //load checkbox & radiobox states from ini file
             SettingSaver.LoadSettings();
@@ -502,26 +501,20 @@ namespace LoL_Companion
 
         private void materialRaisedButton9_Click(object sender, EventArgs e)
         {
-            string selectedChampionId = string.Empty;
-            //Find Champion id from List with selected Champion Name
-            for (int i = 0; i < Champion.Count; i++)
+            string selectedName = comboBox4.Text;
+
+            if (!championMap.TryGetValue(selectedName, out string selectedChampionId))
             {
-                if (comboBox4.Text == Champion[i][0])
-                {
-                    selectedChampionId = Champion[i][1];
-                }
+                MessageBox.Show("리스트에서 챔피언을 선택해 주십시오.");
+                return;
             }
 
-            if (selectedChampionId == string.Empty)
-            {
-                MessageBox.Show("Please select the champion from the list.");
-            }
-            else
-            {
-                //datadragon 링크와 챔피언 id를 합침
-                string champSplashURL = "http://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-splashes/" + selectedChampionId;
-                Process.Start(champSplashURL);
-            }
+            // 선택된 챔피언의 스플래시 URL 열기
+            string champSplashURL =
+                "http://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/" +
+                "global/default/v1/champion-splashes/" + selectedChampionId;
+
+            Process.Start(champSplashURL);
         }
 
         private void materialSingleLineTextField3_Enter(object sender, EventArgs e)
