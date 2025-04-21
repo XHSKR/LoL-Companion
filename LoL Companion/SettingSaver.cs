@@ -21,8 +21,8 @@ namespace LoL_Companion
             }
             using (StreamReader reader = new StreamReader(@"credentials.conf"))
             {
-                Form1.Object.leagueID = new List<string>(reader.ReadLine().Split(','));
-                Form1.Object.leaguePass = reader.ReadLine();
+                Form1.leagueID = new List<string>(reader.ReadLine().Split(','));
+                Form1.leaguePass = reader.ReadLine();
                 reader.Close();
             }
         }
@@ -120,7 +120,7 @@ namespace LoL_Companion
                 }
 
                 // [League Location] 섹션
-                Form1.Object.leagueLocation = states[0];
+                Form1.leagueLocation = states[0];
 
                 // [League Client Settings] 섹션
                 Form1.Object.materialCheckBox8.Checked = bool.Parse(states[1]);

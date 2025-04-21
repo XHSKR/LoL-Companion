@@ -1,5 +1,4 @@
-﻿using IWshRuntimeLibrary;
-using MaterialSkin.Controls;
+﻿using MaterialSkin.Controls;
 using Newtonsoft.Json.Linq;
 using System;
 using System.Net.Http;
@@ -15,8 +14,6 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Windows.Forms;
 using WindowsInput;
-using System.Linq.Expressions;
-using System.Threading.Tasks;
 
 namespace LoL_Companion
 {
@@ -123,7 +120,7 @@ namespace LoL_Companion
 
         public List<string[]> Champion = new List<string[]>();
 
-        public string leagueLocation = "C:/Riot Games/League of Legends/";
+        public static string leagueLocation = "C:/Riot Games/League of Legends/";
 
         GlobalKeyboardHook gHook;
 
@@ -133,17 +130,17 @@ namespace LoL_Companion
         int ingameTime;
         DateTime dt;
 
+        public static bool isClientFocused = false;
         public bool isClientRunning = false;
         public bool isinGameRunning = false;
-        public bool isClientFocused = false;
         bool isinGameFocused = false;
 
         bool isChatMuted = false;
         bool isReplay = true;
         int afkTime = 0;
 
-        public List<string> leagueID;
-        public string leaguePass;
+        public static List<string> leagueID;
+        public static string leaguePass;
 
         public bool isConnectedtoWebsocket = false;
 
@@ -334,64 +331,110 @@ namespace LoL_Companion
 
         private async void RetrieveAccountInfo()
         {
+            // 1) RiotClientServices 프로세스 탐색 및 경로 설정
             Process[] processes = Process.GetProcessesByName("RiotClientServices");
             if (processes.Length > 0)
             {
-                leagueLocation = processes[0].MainModule.FileName;
-                leagueLocation = leagueLocation.Substring(0, leagueLocation.Length - 34);
-                leagueLocation += @"League of Legends\";
+                var exePath = processes[0].MainModule?.FileName;
+                if (!string.IsNullOrEmpty(exePath))
+                {
+                    leagueLocation = Path.Combine(
+                        Path.GetDirectoryName(exePath) ?? string.Empty,
+                        "League of Legends");
+                }
+                else
+                {
+                    // 프로세스 정보가 비어 있으면 기본값으로 처리
+                    leagueLocation = oldLeagueLocation;
+                }
+            }
+            else
+            {
+                // RiotClientServices가 실행 중이 아니면 리턴하거나 기본값 사용
+                leagueLocation = oldLeagueLocation;
             }
 
-            // Fetch current summoner
-            JObject currentSummoner = await LCU_Request.GET("/lol-summoner/v1/current-summoner");
-            summonerName = currentSummoner["displayName"].ToString();
-            summonerId = currentSummoner["summonerId"].ToString();
+            // 2) Summoner 정보 가져오기 (실패 시 빈 JObject 반환하도록 GET 수정 권장)
+            JObject currentSummoner = null;
+            try
+            {
+                currentSummoner = await LCU_Request.GET("/lol-summoner/v1/current-summoner");
+            }
+            catch
+            {
+                // 무시하거나 로깅만 하고 넘어갑니다.
+            }
+            summonerName = currentSummoner?["displayName"]?.ToString() ?? "Unknown";
+            summonerId = currentSummoner?["summonerId"]?.ToString() ?? string.Empty;
 
-            // Fetch username
-            JObject loginCreds = await LCU_Request.GET("/lol-login/v1/login-platform-credentials");
-            accountId = loginCreds["username"].ToString();
+            // 3) 로그인 크리덴셜 가져오기
+            JObject loginCreds = null;
+            try
+            {
+                loginCreds = await LCU_Request.GET("/lol-login/v1/login-platform-credentials");
+            }
+            catch { }
+            accountId = loginCreds?["username"]?.ToString() ?? string.Empty;
 
-            // Fetch region/locale
-            JObject regionInfo = await LCU_Request.GET("/riotclient/region-locale");
-            region = regionInfo["webRegion"].ToString().ToUpper();
+            // 4) Region/Locale 가져오기
+            JObject regionInfo = null;
+            try
+            {
+                regionInfo = await LCU_Request.GET("/riotclient/region-locale");
+            }
+            catch { }
+            region = regionInfo?["webRegion"]?.ToString().ToUpper() ?? "UNKNOWN";
             email = "Not Available";
 
             bool isRiotServer = region != "STAGING.NA";
 
             if (isRiotServer)
             {
-                // Fetch verified email
-                JObject emailInfo = await LCU_Request.GET("/lol-email-verification/v1/email");
-                email = emailInfo["email"].ToString();
+                // 5) Verified Email 가져오기
+                JObject emailInfo = null;
+                try
+                {
+                    emailInfo = await LCU_Request.GET("/lol-email-verification/v1/email");
+                }
+                catch { }
+                email = emailInfo?["email"]?.ToString() ?? "Not Available";
 
-                // Modify game.cfg file to use Replay API
-                string path = leagueLocation + @"Config\game.cfg";
-                var oldLines = System.IO.File.ReadAllLines(path);
-                var newLines = oldLines.Where(line => !line.Contains("EnableReplayApi"));
-                var newLines2 = newLines.Where(line => !line.Contains("[General]"));
-                System.IO.File.WriteAllLines(path, newLines2);
-                string content = System.IO.File.ReadAllText(path);
-                content = "[General]" + "\n" + "EnableReplayApi=1" + "\n" + content;
-                System.IO.File.WriteAllText(path, content);
-
-                // Modify game.cfg file to use Replay API
-                string gameCfgPath = Path.Combine(leagueLocation, @"Config\game.cfg");
-                string[] gameCfgLines = System.IO.File.ReadAllLines(gameCfgPath);
-                var modifiedLines = new List<string> { "[General]", "EnableReplayApi=1" };
-                modifiedLines.AddRange(gameCfgLines.Where(line => !line.Contains("EnableReplayApi")));
-                System.IO.File.WriteAllLines(gameCfgPath, modifiedLines);
+                // 6) game.cfg 수정
+                var configPath = Path.Combine(leagueLocation, "Config", "game.cfg");
+                if (File.Exists(configPath))
+                {
+                    var lines = File.ReadAllLines(configPath).ToList();
+                    // 기존 [General] 및 EnableReplayApi 제거
+                    lines.RemoveAll(l => l.StartsWith("[General]") || l.Contains("EnableReplayApi"));
+                    // 맨 앞에 추가
+                    lines.InsertRange(0, new[] { "[General]", "EnableReplayApi=1" });
+                    File.WriteAllLines(configPath, lines);
+                }
             }
             else
             {
-                leagueLocation = oldLeagueLocation;
-
+                // PBE, 중국, 가레나 등 비공식 서버
                 region = "Non-Riot Server (PBE, China, Garena)";
+                // leagueLocation은 기존 값 유지
             }
 
-            materialLabel14.Text = $"Summoner's Name: {summonerName}\nAccount ID: {accountId}\nE-mail Address: {email}\nRegion: {region}";
+            // 7) UI 업데이트
+            materialLabel14.Text =
+                $"Summoner's Name: {summonerName}\n" +
+                $"Account ID: {accountId}\n" +
+                $"E-mail Address: {email}\n" +
+                $"Region: {region}";
 
-            string payload = "{ \"lol\": { \"rankedLeagueDivision\": \"I\", \"rankedLeagueQueue\": \"RANKED_SOLO_5x5\", \"rankedLeagueTier\": \"CHALLENGER\" } }";
-            await LCU_Request.PUT("/lol-chat/v1/me", payload);
+            // 8) Chat 정보 갱신
+            try
+            {
+                string payload = "{ \"lol\": { \"rankedLeagueDivision\": \"I\", \"rankedLeagueQueue\": \"RANKED_SOLO_5x5\", \"rankedLeagueTier\": \"CHALLENGER\" } }";
+                await LCU_Request.PUT("/lol-chat/v1/me", payload);
+            }
+            catch
+            {
+                // 무시하거나 필요 시 로깅
+            }
         }
 
         private void HandleInGame()
