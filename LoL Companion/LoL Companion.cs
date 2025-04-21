@@ -40,7 +40,7 @@ namespace LoL_Companion
         {
             Object = this;
 
-            SettingSaver.loadCredentials();
+            SettingSaver.LoadCredentials();
             comboBox2.Items.AddRange(leagueID.ToArray());
             comboBox2.DropDownStyle = ComboBoxStyle.DropDownList;
 
@@ -90,7 +90,7 @@ namespace LoL_Companion
             }
 
             //load checkbox & radiobox states from ini file
-            SettingSaver.loadStates();
+            SettingSaver.LoadSettings();
 
             //Set the location of league folder
             oldLeagueLocation = leagueLocation;
@@ -110,7 +110,7 @@ namespace LoL_Companion
         private void Form1_FormClosing(object sender, FormClosingEventArgs e)
         {
             gHook.unhook();
-            SettingSaver.saveStates(); //Save checkbox & radiobox states
+            SettingSaver.SaveSettings(); //Save checkbox & radiobox states
         }
 
         //Declare Variables
@@ -131,23 +131,22 @@ namespace LoL_Companion
         DateTime dt;
 
         public static bool isClientFocused = false;
-        public bool isClientRunning = false;
-        public bool isinGameRunning = false;
+        bool isClientRunning = false;
+        bool isinGameRunning = false;
         bool isinGameFocused = false;
 
         bool isChatMuted = false;
         bool isReplay = true;
-        int afkTime = 0;
 
         public static List<string> leagueID;
         public static string leaguePass;
 
-        public bool isConnectedtoWebsocket = false;
+        public static bool isConnectedtoWebsocket = false;
 
         [DllImport("user32.dll")] static extern IntPtr GetForegroundWindow();
         [DllImport("user32.dll")] static extern int GetWindowText(IntPtr hWnd, StringBuilder text, int count);
 
-        private void sendMessage(string chatMessage)
+        private void SendMessage(string chatMessage)
         {
             if (!string.IsNullOrEmpty(chatMessage))
             {
@@ -167,14 +166,14 @@ namespace LoL_Companion
             }
         }
 
-        private void simulateEnter()
+        private void SimulateEnter()
         {
             InputSimulator Simulator = new InputSimulator();
             Simulator.Keyboard.KeyPress(WindowsInput.Native.VirtualKeyCode.RETURN);
             Thread.Sleep(20);
         }
 
-        private string getActiveWindowName()
+        private string GetActiveWindowName()
         {
             const int nChars = 256;
             StringBuilder Buff = new StringBuilder(nChars);
@@ -185,15 +184,6 @@ namespace LoL_Companion
                 return Buff.ToString();
             }
             return null;
-        }
-
-        private void sendAfkWarning()
-        {
-            this.TopMost = true;
-
-            this.WindowState = FormWindowState.Normal;
-            System.Media.SystemSounds.Beep.Play();
-            label1.Visible = true;
         }
 
         private void gHook_KeyDown(object sender, KeyEventArgs e)
@@ -287,9 +277,9 @@ namespace LoL_Companion
                             }
                             if (editedSpelltimes != "")
                             {
-                                simulateEnter();
-                                sendMessage(editedSpelltimes);
-                                simulateEnter();
+                                SimulateEnter();
+                                SendMessage(editedSpelltimes);
+                                SimulateEnter();
                             }
                         }
                     }
@@ -305,7 +295,7 @@ namespace LoL_Companion
             isClientRunning = leagueClient.Length != 0;
             isinGameRunning = pname.Length != 0;
 
-            string focusedApp = getActiveWindowName();
+            string focusedApp = GetActiveWindowName();
             isClientFocused = focusedApp == "League of Legends";
             isinGameFocused = focusedApp == "League of Legends (TM) Client";
 
@@ -315,7 +305,7 @@ namespace LoL_Companion
                     try
                     {
                         RetrieveAccountInfo();
-                        Websocket.connectToLCU();
+                        Websocket.ConnectToLCU();
                         isConnectedtoWebsocket = true;
                     }
                     catch { }
@@ -398,18 +388,6 @@ namespace LoL_Companion
                 }
                 catch { }
                 email = emailInfo?["email"]?.ToString() ?? "Not Available";
-
-                // 6) game.cfg 수정
-                var configPath = Path.Combine(leagueLocation, "Config", "game.cfg");
-                if (File.Exists(configPath))
-                {
-                    var lines = File.ReadAllLines(configPath).ToList();
-                    // 기존 [General] 및 EnableReplayApi 제거
-                    lines.RemoveAll(l => l.StartsWith("[General]") || l.Contains("EnableReplayApi"));
-                    // 맨 앞에 추가
-                    lines.InsertRange(0, new[] { "[General]", "EnableReplayApi=1" });
-                    File.WriteAllLines(configPath, lines);
-                }
             }
             else
             {
@@ -466,21 +444,11 @@ namespace LoL_Companion
                 if (materialCheckBox3.Checked && isinGameFocused && ingameTime > 1 && !isChatMuted)
                 {
                     Thread.Sleep(50);
-                    simulateEnter();
-                    sendMessage("/deafen");
-                    simulateEnter();
+                    SimulateEnter();
+                    SendMessage("/deafen");
+                    SimulateEnter();
                     isChatMuted = true;
                 }
-
-                // first afkwarning occurs at 2:40
-                if (afkTime >= 1 && ingameTime == 160)
-                    sendAfkWarning();
-
-                // afkTime 2:10 (130)
-                if (ingameTime >= 430 && afkTime == 130)
-                    sendAfkWarning();
-
-                textBox8.Text = dt.AddSeconds(afkTime).ToString("mm:ss");
             }
         }
 
@@ -500,9 +468,7 @@ namespace LoL_Companion
 
             if (this.TopMost)
                 this.TopMost = false;
-            afkTime = 0;
             textBox8.Text = string.Empty;
-            label1.Visible = false;
         }
 
         private void UpdateInGameTime()
@@ -530,18 +496,6 @@ namespace LoL_Companion
                     catch { }
                 else
                     ingameTime++;
-
-            // increases afktime (Manual)
-            if (!isinGameFocused && ingameTime > 1 && !isReplay)
-                afkTime++;
-            else
-            {
-                if (this.TopMost)
-                    this.TopMost = false;
-                afkTime = 0;
-                textBox8.Text = string.Empty;
-                label1.Visible = false;
-            }
         }
 
         int draggedTime = 0;
@@ -703,7 +657,7 @@ namespace LoL_Companion
             }
         }
 
-        private void terminateLoL()
+        private void TerminateLoL()
         {
             string[] processes = {
                 //in-game Client
@@ -729,7 +683,7 @@ namespace LoL_Companion
 
         private void AutoLogin(string region)
         {
-            terminateLoL();
+            TerminateLoL();
 
             try
             {
@@ -794,7 +748,7 @@ namespace LoL_Companion
             AutoLogin("en_AU");
         }
 
-        public string savePath;
+        public static string savePath;
         private void materialCheckBox13_CheckedChanged(object sender, EventArgs e)
         {
             if (materialCheckBox13.Checked)
@@ -805,7 +759,7 @@ namespace LoL_Companion
                 savePath = $"Logs/websocket_{datetime}.json";
 
                 if (materialCheckBox13.Checked)
-                    Websocket.debug();
+                    Websocket.Debug();
             }
             else
                 Websocket.LCU_Debug.Close();
@@ -838,7 +792,7 @@ namespace LoL_Companion
         }
 
         //Champion Instant Lock
-        public string selectedChampionId = "";
+        public static string selectedChampionId = "";
         private void materialCheckBox14_CheckedChanged(object sender, EventArgs e)
         {
             if (materialCheckBox14.Checked)
@@ -882,7 +836,7 @@ namespace LoL_Companion
         }
 
         //Champion Auto Ban
-        public string selectedBanChampionId = "";
+        public static string selectedBanChampionId = "";
         private void materialCheckBox20_CheckedChanged(object sender, EventArgs e)
         {
             if (materialCheckBox20.Checked)
@@ -1067,7 +1021,7 @@ namespace LoL_Companion
 
         private void materialRaisedButton34_Click(object sender, EventArgs e)
         {
-            SetLobbyPreset("Jungle", "Master Yi", "Zac");
+            SetLobbyPreset("Jungle", "Master Yi", "Naafiri");
         }
 
         private void materialRaisedButton36_Click(object sender, EventArgs e)

@@ -30,7 +30,7 @@ namespace LoL_Companion
 
         public WebSocket LCU;
 
-        private void minimiseClient_conditional()
+        private void MinimizeClient()
         {
             if (!Form1.isClientFocused)
             {
@@ -147,11 +147,11 @@ namespace LoL_Companion
 
                 string message = $"{name}: {string.Join(", ", counts)}";
                 Console.WriteLine(message);
-                sendChatinChampSelect(message);
+                SendChatinChampSelect(message);
             }
         }
 
-        public void connectToLCU()
+        public void ConnectToLCU()
         {
             LCU = new WebSocket($"wss://127.0.0.1:{LCU_Request.riotPort}/", "wamp");
             LCU.SetCredentials("riot", LCU_Request.riotPass, true);
@@ -218,16 +218,13 @@ namespace LoL_Companion
                         if (lobbyStatus is JObject obj && obj["queueId"] != null)
                             queueId = obj["queueId"].ToString();
                     }
-                    catch
-                    {
-                        // 무시
-                    }
+                    catch { }
 
                     if (data == "ReadyCheck")
                     {
                         if (Form1.Object.materialCheckBox8.Checked)
                         {
-                            minimiseClient_conditional();
+                            MinimizeClient();
                             await LCU_Request.POST("/lol-matchmaking/v1/ready-check/accept", "0");
                         }
                         isChatAvailable = false;
@@ -242,13 +239,13 @@ namespace LoL_Companion
                         // 1) 연습 모드 (Practice)
                         if (queueId == "-1" && Form1.Object.materialCheckBox14.Checked)
                         {
-                            await pickChampion("practice");
+                            await PickChampion("practice");
                         }
 
                         // 2) 노말 블라인드 (QueueId 430)
                         if (queueId == "430" && Form1.Object.materialCheckBox14.Checked)
                         {
-                            await pickChampion("blind");
+                            await PickChampion("blind");
                             if (Form1.Object.materialCheckBox12.Checked)
                             {
                                 // 포지션 호출 로직
@@ -269,7 +266,7 @@ namespace LoL_Companion
                                 while (!isChatAvailable)
                                 {
                                     for (int i = 0; i < 5; i++)
-                                        sendChatinChampSelect(position);
+                                        SendChatinChampSelect(position);
                                 }
                                 isChatAvailable = false;
                             }
@@ -279,7 +276,7 @@ namespace LoL_Companion
                         if (Form1.Object.materialCheckBox14.Checked &&
                             (queueId == "400" || queueId == "420" || queueId == "440"))
                         {
-                            await pickChampion("draft");
+                            await PickChampion("draft");
                         }
                     }
                 }
@@ -292,7 +289,7 @@ namespace LoL_Companion
                     {
                         await CheckEnemyTeamCCAsync();
                         if (Form1.Object.materialCheckBox21.Checked)
-                            sendChatinChampSelect(Form1.Object.materialSingleLineTextField2.Text);
+                            SendChatinChampSelect(Form1.Object.materialSingleLineTextField2.Text);
 
                         chat_in_finalization = true;
                     }
@@ -336,15 +333,15 @@ namespace LoL_Companion
                         if (Form1.Object.materialCheckBox20.Checked && actionType == "ban")
                         {
                             if (Form1.Object.materialCheckBox19.Checked)
-                                sendChatinChampSelect(Form1.Object.materialSingleLineTextField1.Text);
+                                SendChatinChampSelect(Form1.Object.materialSingleLineTextField1.Text);
 
-                            string payload = $"{{\"championId\":{Form1.Object.selectedBanChampionId},\"completed\":true}}";
+                            string payload = $"{{\"championId\":{Form1.selectedBanChampionId},\"completed\":true}}";
                             await LCU_Request.PATCH(
                                 $"/lol-champ-select/v1/session/actions/{localPlayerCellId}",
                                 payload
                             );
 
-                            minimiseClient_conditional();
+                            MinimizeClient();
                         }
 
                         // 드래프트 픽
@@ -353,7 +350,7 @@ namespace LoL_Companion
                             actionType == "pick" && skinId == "0" &&
                             isActingNow && !isDonePicking)
                         {
-                            await pickChampion("draft");
+                            await PickChampion("draft");
                         }
                     }
                 }
@@ -361,12 +358,12 @@ namespace LoL_Companion
 
             LCU.Connect();
             LCU.Send("[5, \"OnJsonApiEvent_lol-gameflow_v1_gameflow-phase\"]");
-            Form1.Object.isConnectedtoWebsocket = true;
+            Form1.isConnectedtoWebsocket = true;
         }
 
         public WebSocket LCU_Debug;
 
-        private async Task pickChampion(string queueType)
+        private async Task PickChampion(string queueType)
         {
             // Find my CellId (pick order)
             JObject session = await LCU_Request.GET("/lol-champ-select/v1/session");
@@ -389,7 +386,7 @@ namespace LoL_Companion
 
             if (queueType == "draft")
             {
-                string payload = $"{{\"championId\":{Form1.Object.selectedChampionId}, \"completed\": true}}";
+                string payload = $"{{\"championId\":{Form1.selectedChampionId}, \"completed\": true}}";
                 await LCU_Request.PATCH($"/lol-champ-select/v1/session/actions/{id_}", payload);
             }
             else
@@ -397,9 +394,9 @@ namespace LoL_Companion
                 string payload;
 
                 if (Form1.Object.materialCheckBox16.Checked) // lock-in
-                    payload = $"{{\"championId\":{Form1.Object.selectedChampionId}, \"completed\": true}}";
+                    payload = $"{{\"championId\":{Form1.selectedChampionId}, \"completed\": true}}";
                 else // no lock-in
-                    payload = $"{{\"championId\":{Form1.Object.selectedChampionId}, \"completed\": false}}";
+                    payload = $"{{\"championId\":{Form1.selectedChampionId}, \"completed\": false}}";
 
                 if (queueType == "blind")
                     await LCU_Request.PATCH($"/lol-champ-select/v1/session/actions/{localPlayerCellId}", payload);
@@ -410,7 +407,7 @@ namespace LoL_Companion
         }
 
         bool isChatAvailable = false;
-        private async void sendChatinChampSelect(string body)
+        private async void SendChatinChampSelect(string body)
         {
             JArray jsonArray = await LCU_Request.GET_Array("/lol-chat/v1/conversations");
             string id = "";
@@ -435,7 +432,7 @@ namespace LoL_Companion
             }
         }
 
-        public void debug()
+        public void Debug()
         {
             LCU_Debug = new WebSocket($"wss://127.0.0.1:{LCU_Request.riotPort}/", "wamp");
             LCU_Debug.SetCredentials("riot", LCU_Request.riotPass, true);
@@ -446,7 +443,7 @@ namespace LoL_Companion
                 if (e.IsText)
                 {
                     var eventArray = JArray.Parse(e.Data);
-                    System.IO.File.AppendAllText(Form1.Object.savePath, eventArray + "\n\n\n", Encoding.GetEncoding("UTF-8"));
+                    System.IO.File.AppendAllText(Form1.savePath, eventArray + "\n\n\n", Encoding.GetEncoding("UTF-8"));
                 }
             };
             LCU_Debug.Connect();

@@ -114,7 +114,6 @@
             this.materialCheckBox13 = new MaterialSkin.Controls.MaterialCheckBox();
             this.materialRaisedButton42 = new MaterialSkin.Controls.MaterialRaisedButton();
             this.materialLabel10 = new MaterialSkin.Controls.MaterialLabel();
-            this.label1 = new System.Windows.Forms.Label();
             this.textBox8 = new System.Windows.Forms.TextBox();
             this.materialTabSelector1 = new MaterialSkin.Controls.MaterialTabSelector();
             this.timer3 = new System.Windows.Forms.Timer(this.components);
@@ -1451,19 +1450,6 @@
             this.materialLabel10.Size = new System.Drawing.Size(100, 23);
             this.materialLabel10.TabIndex = 0;
             // 
-            // label1
-            // 
-            this.label1.AutoSize = true;
-            this.label1.Font = new System.Drawing.Font("Microsoft Sans Serif", 13.8F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.label1.ForeColor = System.Drawing.Color.Red;
-            this.label1.Location = new System.Drawing.Point(724, 32);
-            this.label1.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
-            this.label1.Name = "label1";
-            this.label1.Size = new System.Drawing.Size(179, 29);
-            this.label1.TabIndex = 9;
-            this.label1.Text = "AFK WARNING";
-            this.label1.Visible = false;
-            // 
             // textBox8
             // 
             this.textBox8.BackColor = System.Drawing.Color.White;
@@ -1499,7 +1485,6 @@
             this.BackColor = System.Drawing.Color.White;
             this.ClientSize = new System.Drawing.Size(978, 538);
             this.Controls.Add(this.materialTabSelector1);
-            this.Controls.Add(this.label1);
             this.Controls.Add(this.textBox8);
             this.Controls.Add(this.materialTabControl1);
             this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
@@ -1614,7 +1599,6 @@
         public MaterialSkin.Controls.MaterialRaisedButton materialRaisedButton24;
         public System.Windows.Forms.TextBox textBox8;
         public MaterialSkin.Controls.MaterialCheckBox materialCheckBox3;
-        public System.Windows.Forms.Label label1;
         public MaterialSkin.Controls.MaterialTabSelector materialTabSelector1;
         public MaterialSkin.Controls.MaterialCheckBox materialCheckBox10;
         public MaterialSkin.Controls.MaterialRaisedButton materialRaisedButton38;

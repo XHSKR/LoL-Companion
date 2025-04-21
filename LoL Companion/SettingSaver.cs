@@ -8,154 +8,157 @@ namespace LoL_Companion
 {
     class SettingSaver
     {
-        public void loadCredentials()
+        private const string CredentialsFile = "credentials.conf";
+        private const string SettingsFile = "settings.ini";
+
+        public void LoadCredentials()
         {
-            if (!File.Exists(@"credentials.conf"))
+            try
             {
-                using (StreamWriter writer = new StreamWriter(@"credentials.conf"))
-                {
-                    writer.WriteLine("username1,username2,username3");
-                    writer.WriteLine("password");
-                    writer.Close();
-                }
+                if (!File.Exists(CredentialsFile))
+                    WriteDefaultCredentials();
+
+                var lines = File.ReadAllLines(CredentialsFile);
+                Form1.leagueID = lines.First().Split(',').ToList();
+                Form1.leaguePass = lines.ElementAtOrDefault(1) ?? string.Empty;
             }
-            using (StreamReader reader = new StreamReader(@"credentials.conf"))
+            catch (IOException ex)
             {
-                Form1.leagueID = new List<string>(reader.ReadLine().Split(','));
-                Form1.leaguePass = reader.ReadLine();
-                reader.Close();
+                MessageBox.Show($"크리덴셜 로드 중 오류가 발생했습니다:\n{ex.Message}",
+                                "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
-        public void saveStates()
+        private void WriteDefaultCredentials()
         {
-            using (StreamWriter writer = new StreamWriter(@"settings.ini"))
+            File.WriteAllLines(CredentialsFile, new[]
             {
-                // [League Location] 섹션
-                writer.WriteLine("[League Location]");
-                writer.WriteLine("\"leagueLocation\"" + " = " + Form1.Object.leagueLocation);
-
-                // [League Client Settings] 섹션
-                writer.WriteLine("\n[League Client Settings]");
-                // materialCheckBox8
-                writer.WriteLine("\"" + Form1.Object.materialCheckBox8.Text + "\" = " + Form1.Object.materialCheckBox8.Checked);
-                // materialCheckBox18, materialCheckBox11, materialCheckBox4, materialCheckBox17 항목은 제외
-                writer.WriteLine("\"Log-in ID\"" + " = " + Form1.Object.comboBox2.Text);
-
-                // [In-Game Settings] 섹션
-                writer.WriteLine("\n[In-Game Settings]");
-                writer.WriteLine("\"" + Form1.Object.materialCheckBox3.Text + "\" = " + Form1.Object.materialCheckBox3.Checked);
-                // materialCheckBox5 항목은 제외
-
-                // [Lobby Settings] 섹션
-                writer.WriteLine("\n[Lobby Settings]");
-                writer.WriteLine("\"" + Form1.Object.materialCheckBox12.Text + "\" = " + Form1.Object.materialCheckBox12.Checked);
-                writer.WriteLine("\"" + Form1.Object.materialRadioButton5.Text + "\" = " + Form1.Object.materialRadioButton5.Checked);
-                writer.WriteLine("\"" + Form1.Object.materialRadioButton6.Text + "\" = " + Form1.Object.materialRadioButton6.Checked);
-                writer.WriteLine("\"" + Form1.Object.materialRadioButton7.Text + "\" = " + Form1.Object.materialRadioButton7.Checked);
-                writer.WriteLine("\"" + Form1.Object.materialRadioButton8.Text + "\" = " + Form1.Object.materialRadioButton8.Checked);
-                writer.WriteLine("\"" + Form1.Object.materialRadioButton9.Text + "\" = " + Form1.Object.materialRadioButton9.Checked);
-                if (Form1.Object.comboBox3.Text == string.Empty)
-                    writer.WriteLine("\"selectedChampion\"" + " = " + "Champion");
-                else
-                    writer.WriteLine("\"selectedChampion\"" + " = " + Form1.Object.comboBox3.Text);
-                writer.WriteLine("\"" + Form1.Object.materialCheckBox16.Text + "\" = " + Form1.Object.materialCheckBox16.Checked);
-                writer.WriteLine("\"" + Form1.Object.materialCheckBox14.Text + "\" = " + Form1.Object.materialCheckBox14.Checked);
-                if (Form1.Object.comboBox6.Text == string.Empty)
-                    writer.WriteLine("\"selectedBanChampionId\"" + " = " + "Champion");
-                else
-                    writer.WriteLine("\"selectedBanChampionId\"" + " = " + Form1.Object.comboBox6.Text);
-                writer.WriteLine("\"" + Form1.Object.materialCheckBox20.Text + "\" = " + Form1.Object.materialCheckBox20.Checked);
-
-                // [Chat Settings] 섹션
-                writer.WriteLine("\n[Chat Settings]");
-                if (Form1.Object.materialSingleLineTextField1.Text == string.Empty)
-                    writer.WriteLine("\"Ban-Phase\"" + " = " + "Enter your phrase");
-                else
-                    writer.WriteLine("\"Ban-Phase\"" + " = " + Form1.Object.materialSingleLineTextField1.Text);
-                writer.WriteLine("\"Ban-Phase CheckBox\"" + " = " + Form1.Object.materialCheckBox19.Checked);
-                if (Form1.Object.materialSingleLineTextField2.Text == string.Empty)
-                    writer.WriteLine("\"Finalization-Phase\"" + " = " + "Enter your phrase");
-                else
-                    writer.WriteLine("\"Finalization-Phase\"" + " = " + Form1.Object.materialSingleLineTextField2.Text);
-                writer.WriteLine("\"Finalization-Phase CheckBox\"" + " = " + Form1.Object.materialCheckBox21.Checked);
-                // materialCheckBox6, materialCheckBox7, Spamming Text 항목은 제외
-
-                // [Spell Tracker Settings] 섹션
-                writer.WriteLine("\n[Spell Tracker Settings]");
-                writer.WriteLine("\"" + Form1.Object.materialCheckBox10.Text + "\" = " + Form1.Object.materialCheckBox10.Checked);
-                writer.WriteLine("\"" + Form1.Object.materialCheckBox1.Text + "\" = " + Form1.Object.materialCheckBox1.Checked);
-                writer.WriteLine("\"" + Form1.Object.materialCheckBox2.Text + "\" = " + Form1.Object.materialCheckBox2.Checked);
-
-                writer.Close();
-            }
+                "username1,username2,username3",
+                "password"
+            });
         }
 
-        public void loadStates()
+        public void SaveSettings()
         {
-            if (!File.Exists(@"settings.ini"))
+            try
             {
-                MessageBox.Show("Thanks for using LoL Companion !\n\nDISCLAIMER\n1. Visit credentials.conf file to change the details with yours.\n2. Multi Search, Type W/R in Chat, and 50 FOV in Replay do not work on Non-Riot Server (PBE, China, Garena).\n3. Some functions featured by this app may not work or be expunged in the future.\n4. The developer does not take any form of accountability for using the app. USE IT AT YOUR OWN RISK !\n\nThis message only appears once.\n\nFor any inquiries, please send me an email to mail@xhs.kr", "Welcome", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                saveStates();
-            }
-            else
-            {
-                List<String> states = new List<String>();
-                using (var file_read = new StreamReader(@"settings.ini"))
+                using (var writer = new StreamWriter(SettingsFile))
                 {
-                    int totalLines = File.ReadLines(@"settings.ini").Count();
-                    for (int i = 0; i < totalLines; i++)
+                    WriteSection(writer, "League Location", () =>
+                        writer.WriteLine($"\"leagueLocation\" = {Form1.leagueLocation}"));
+
+                    WriteSection(writer, "League Client Settings", () =>
                     {
-                        string str = file_read.ReadLine();
-                        if (String.IsNullOrWhiteSpace(str) || str.Contains("[") || str.Contains("]"))
-                        {
-                            continue;
-                        }
-                        else
-                        {
-                            states.Add(str.Substring(str.IndexOf("=") + 1).Trim());
-                        }
-                    }
-                    file_read.Close();
+                        writer.WriteLine($"\"{Form1.Object.materialCheckBox8.Text}\" = {Form1.Object.materialCheckBox8.Checked}");
+                        writer.WriteLine($"\"Log-in ID\" = {Form1.Object.comboBox2.Text}");
+                    });
+
+                    WriteSection(writer, "In-Game Settings", () =>
+                        writer.WriteLine($"\"{Form1.Object.materialCheckBox3.Text}\" = {Form1.Object.materialCheckBox3.Checked}"));
+
+                    WriteSection(writer, "Lobby Settings", () =>
+                    {
+                        writer.WriteLine($"\"{Form1.Object.materialCheckBox12.Text}\" = {Form1.Object.materialCheckBox12.Checked}");
+                        var radios = new[] {
+                            Form1.Object.materialRadioButton5,
+                            Form1.Object.materialRadioButton6,
+                            Form1.Object.materialRadioButton7,
+                            Form1.Object.materialRadioButton8,
+                            Form1.Object.materialRadioButton9
+                        };
+                        foreach (var rb in radios)
+                            writer.WriteLine($"\"{rb.Text}\" = {rb.Checked}");
+
+                        writer.WriteLine($"\"selectedChampion\" = {NonEmptyOrDefault(Form1.Object.comboBox3.Text, "Champion")}");
+                        writer.WriteLine($"\"{Form1.Object.materialCheckBox16.Text}\" = {Form1.Object.materialCheckBox16.Checked}");
+                        writer.WriteLine($"\"{Form1.Object.materialCheckBox14.Text}\" = {Form1.Object.materialCheckBox14.Checked}");
+                        writer.WriteLine($"\"selectedBanChampionId\" = {NonEmptyOrDefault(Form1.Object.comboBox6.Text, "Champion")}");
+                        writer.WriteLine($"\"{Form1.Object.materialCheckBox20.Text}\" = {Form1.Object.materialCheckBox20.Checked}");
+                    });
+
+                    WriteSection(writer, "Chat Settings", () =>
+                    {
+                        writer.WriteLine($"\"Ban-Phase\" = {NonEmptyOrDefault(Form1.Object.materialSingleLineTextField1.Text, "Enter your phrase")}");
+                        writer.WriteLine($"\"Ban-Phase CheckBox\" = {Form1.Object.materialCheckBox19.Checked}");
+                        writer.WriteLine($"\"Finalization-Phase\" = {NonEmptyOrDefault(Form1.Object.materialSingleLineTextField2.Text, "Enter your phrase")}");
+                        writer.WriteLine($"\"Finalization-Phase CheckBox\" = {Form1.Object.materialCheckBox21.Checked}");
+                    });
+
+                    WriteSection(writer, "Spell Tracker Settings", () =>
+                    {
+                        writer.WriteLine($"\"{Form1.Object.materialCheckBox10.Text}\" = {Form1.Object.materialCheckBox10.Checked}");
+                        writer.WriteLine($"\"{Form1.Object.materialCheckBox1.Text}\" = {Form1.Object.materialCheckBox1.Checked}");
+                        writer.WriteLine($"\"{Form1.Object.materialCheckBox2.Text}\" = {Form1.Object.materialCheckBox2.Checked}");
+                    });
                 }
-
-                // [League Location] 섹션
-                Form1.leagueLocation = states[0];
-
-                // [League Client Settings] 섹션
-                Form1.Object.materialCheckBox8.Checked = bool.Parse(states[1]);
-                // materialCheckBox18, materialCheckBox11, materialCheckBox4, materialCheckBox17 항목은 제외
-                Form1.Object.comboBox2.Text = states[2];
-
-                // [In-Game Settings] 섹션
-                Form1.Object.materialCheckBox3.Checked = bool.Parse(states[3]);
-                // materialCheckBox5 항목은 제외
-
-                // [Lobby Settings] 섹션
-                Form1.Object.materialCheckBox12.Checked = bool.Parse(states[4]);
-                Form1.Object.materialRadioButton5.Checked = bool.Parse(states[5]);
-                Form1.Object.materialRadioButton6.Checked = bool.Parse(states[6]);
-                Form1.Object.materialRadioButton7.Checked = bool.Parse(states[7]);
-                Form1.Object.materialRadioButton8.Checked = bool.Parse(states[8]);
-                Form1.Object.materialRadioButton9.Checked = bool.Parse(states[9]);
-                Form1.Object.comboBox3.Text = states[10];
-                Form1.Object.materialCheckBox16.Checked = bool.Parse(states[11]);
-                Form1.Object.materialCheckBox14.Checked = bool.Parse(states[12]);
-                Form1.Object.comboBox6.Text = states[13];
-                Form1.Object.materialCheckBox20.Checked = bool.Parse(states[14]);
-
-                // [Chat Settings] 섹션
-                Form1.Object.materialSingleLineTextField1.Text = states[15];
-                Form1.Object.materialCheckBox19.Checked = bool.Parse(states[16]);
-                Form1.Object.materialSingleLineTextField2.Text = states[17];
-                Form1.Object.materialCheckBox21.Checked = bool.Parse(states[18]);
-                // materialCheckBox6, materialCheckBox7, Spamming Text 항목은 제외
-
-                // [Spell Tracker Settings] 섹션
-                Form1.Object.materialCheckBox10.Checked = bool.Parse(states[19]);
-                Form1.Object.materialCheckBox1.Checked = bool.Parse(states[20]);
-                Form1.Object.materialCheckBox2.Checked = bool.Parse(states[21]);
+            }
+            catch (IOException ex)
+            {
+                MessageBox.Show($"설정 저장 중 오류가 발생했습니다:\n{ex.Message}",
+                                "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
+
+        private static void WriteSection(StreamWriter writer, string header, Action writeContent)
+        {
+            writer.WriteLine($"[{header}]");
+            writeContent();
+            writer.WriteLine();
+        }
+
+        public void LoadSettings()
+        {
+            try
+            {
+                if (!File.Exists(SettingsFile))
+                {
+                    MessageBox.Show(
+                        "Thanks for using LoL Companion !\n\nDISCLAIMER\n1. Visit credentials.conf file to change the details with yours.\n" +
+                        "2. Multi Search, Type W/R in Chat, and 50 FOV in Replay do not work on Non-Riot Server (PBE, China, Garena).\n" +
+                        "3. Some functions featured by this app may not work or be expunged in the future.\n" +
+                        "4. The developer does not take any form of accountability for using the app. USE IT AT YOUR OWN RISK !",
+                        "Welcome", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    SaveSettings();
+                    return;
+                }
+
+                var states = File.ReadAllLines(SettingsFile)
+                                 .Where(line => !string.IsNullOrWhiteSpace(line) && line.Contains('='))
+                                 .Select(line => line.Substring(line.IndexOf('=') + 1).Trim())
+                                 .ToList();
+
+                int i = 0;
+                Form1.leagueLocation = states[i++];
+                Form1.Object.materialCheckBox8.Checked = bool.Parse(states[i++]);
+                Form1.Object.comboBox2.Text = states[i++];
+                Form1.Object.materialCheckBox3.Checked = bool.Parse(states[i++]);
+                Form1.Object.materialCheckBox12.Checked = bool.Parse(states[i++]);
+                Form1.Object.materialRadioButton5.Checked = bool.Parse(states[i++]);
+                Form1.Object.materialRadioButton6.Checked = bool.Parse(states[i++]);
+                Form1.Object.materialRadioButton7.Checked = bool.Parse(states[i++]);
+                Form1.Object.materialRadioButton8.Checked = bool.Parse(states[i++]);
+                Form1.Object.materialRadioButton9.Checked = bool.Parse(states[i++]);
+                Form1.Object.comboBox3.Text = states[i++];
+                Form1.Object.materialCheckBox16.Checked = bool.Parse(states[i++]);
+                Form1.Object.materialCheckBox14.Checked = bool.Parse(states[i++]);
+                Form1.Object.comboBox6.Text = states[i++];
+                Form1.Object.materialCheckBox20.Checked = bool.Parse(states[i++]);
+                Form1.Object.materialSingleLineTextField1.Text = states[i++];
+                Form1.Object.materialCheckBox19.Checked = bool.Parse(states[i++]);
+                Form1.Object.materialSingleLineTextField2.Text = states[i++];
+                Form1.Object.materialCheckBox21.Checked = bool.Parse(states[i++]);
+                Form1.Object.materialCheckBox10.Checked = bool.Parse(states[i++]);
+                Form1.Object.materialCheckBox1.Checked = bool.Parse(states[i++]);
+                Form1.Object.materialCheckBox2.Checked = bool.Parse(states[i++]);
+            }
+            catch (Exception ex) when (ex is IOException || ex is FormatException)
+            {
+                MessageBox.Show($"설정 로드 중 오류가 발생했습니다:\n{ex.Message}",
+                                "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private static string NonEmptyOrDefault(string value, string defaultValue)
+            => string.IsNullOrEmpty(value) ? defaultValue : value;
     }
 }
