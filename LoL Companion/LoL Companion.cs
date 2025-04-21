@@ -186,105 +186,70 @@ namespace LoL_Companion
             return null;
         }
 
+        private readonly Dictionary<int, int> flashKeyMap = new Dictionary<int, int>
+        {
+            { Keys.F1.GetHashCode(), 0 },
+            { Keys.F2.GetHashCode(), 1 },
+            { Keys.F3.GetHashCode(), 2 },
+            { Keys.F4.GetHashCode(), 3 },
+            { Keys.F5.GetHashCode(), 4 }
+        };
+
         private void gHook_KeyDown(object sender, KeyEventArgs e)
         {
-            if (isinGameRunning && isinGameFocused && ingameTime > 1)
+            // 게임 중이며 포커스가 맞을 때만 처리
+            if (!isinGameRunning || !isinGameFocused || ingameTime <= 1)
+                return;
+
+            // 1) F1~F5 → flashKeyMap 으로 처리
+            if (flashKeyMap.TryGetValue(e.KeyValue, out int laneIndex))
             {
-                if (e.KeyValue.ToString() == "122") //F11 Key
-                {
-                    Process[] runningProcesses = Process.GetProcesses();
-                    foreach (Process process in runningProcesses)
-                    {
-                        if (process.ProcessName == "League of Legends")
-                            process.CloseMainWindow();
-                    }
-                }
-
-                //Spell Tracker
-                if (materialCheckBox10.Checked)
-                {
-                    laners = new string[5] { "top ", "jg ", "mid ", "ad ", "sup " };
-                    if (e.KeyValue.ToString() == "112") //F1
-                    {
-                        if (lanerTimer[0] < ingameTime)
-                            lanerTimer[0] = ingameTime + 300;
-                    }
-                    if (e.KeyValue.ToString() == "113") //F2
-                    {
-                        if (lanerTimer[1] < ingameTime)
-                            lanerTimer[1] = ingameTime + 300;
-                    }
-                    if (e.KeyValue.ToString() == "114") //F3
-                    {
-                        if (lanerTimer[2] < ingameTime)
-                            lanerTimer[2] = ingameTime + 300;
-                    }
-                    if (e.KeyValue.ToString() == "115") //F4
-                    {
-                        if (lanerTimer[3] < ingameTime)
-                            lanerTimer[3] = ingameTime + 300;
-                    }
-                    if (e.KeyValue.ToString() == "116") //F5
-                    {
-                        if (lanerTimer[4] < ingameTime)
-                            lanerTimer[4] = ingameTime + 300;
-                    }
-
-                    /////////////////////////////////////////////
-
-                    if (e.KeyValue.ToString() == "192" && materialCheckBox2.Checked) //Caps Lock을 사용한다고 했는데 `키를 누름
-                    {
-                        return;
-                    }
-                    if (e.KeyValue.ToString() == "20" && !materialCheckBox2.Checked) // `키를 사용한다고 했는데 Caps Lock을 누름
-                    {
-                        return;
-                    }
-
-                    if (e.KeyValue.ToString() == "112" || e.KeyValue.ToString() == "113" || e.KeyValue.ToString() == "114" ||
-                        e.KeyValue.ToString() == "115" || e.KeyValue.ToString() == "116" || e.KeyValue.ToString() == "192" || e.KeyValue.ToString() == "20") //Keypress 감지
-                    {
-                        if (isinGameRunning)
-                        {
-                            string spelltimes = "";
-                            string editedSpelltimes = "";
-
-                            for (int i = 0; i < 5; i++)
-                            {
-                                if (lanerTimer[i] <= ingameTime) //시간이 넘어가면 라인별 점멸시간 삭제
-                                {
-                                    lanerTimer[i] = 0;
-                                }
-
-                                if (lanerTimer[i] != 0)
-                                {
-                                    string fourDigit;
-                                    if (materialCheckBox1.Checked)
-                                    {
-                                        string lanerTimerString = lanerTimer[i].ToString();
-                                        string roundDown = lanerTimerString.Substring(0, lanerTimerString.Length - 1) + "0";
-                                        lanerTimer[i] = Convert.ToInt32(roundDown);
-                                        fourDigit = dt.AddSeconds(lanerTimer[i]).ToString("mm:ss");
-                                    }
-                                    else
-                                    {
-                                        fourDigit = dt.AddSeconds(lanerTimer[i]).ToString("mm:ss");
-
-                                    }
-                                    spelltimes += fourDigit + laners[i];
-                                    editedSpelltimes = spelltimes.Substring(0, spelltimes.Length - 1);
-                                }
-                            }
-                            if (editedSpelltimes != "")
-                            {
-                                SimulateEnter();
-                                SendMessage(editedSpelltimes);
-                                SimulateEnter();
-                            }
-                        }
-                    }
-                }
+                if (lanerTimer[laneIndex] < ingameTime)
+                    lanerTimer[laneIndex] = ingameTime + 300;
             }
+
+            // 2) Caps Lock(20) 또는 `(192) 키 무시
+            if ((e.KeyValue == 192 && materialCheckBox2.Checked) ||
+                (e.KeyValue == 20 && !materialCheckBox2.Checked))
+            {
+                return;
+            }
+
+            // 3) 스펠 타이머 출력 조건
+            if (materialCheckBox10.Checked &&
+                flashKeyMap.ContainsKey(e.KeyValue))  // F1~F5 혹은 `(192)/20 과 중복 체크
+            {
+                SendSpellTimers();
+            }
+        }
+
+        private void SendSpellTimers()
+        {
+            var sb = new StringBuilder();
+            string[] lanes = { "top ", "jg ", "mid ", "ad ", "sup " };
+
+            for (int i = 0; i < lanerTimer.Length; i++)
+            {
+                if (lanerTimer[i] <= ingameTime)
+                    lanerTimer[i] = 0;
+
+                if (lanerTimer[i] == 0)
+                    continue;
+
+                // 시간 표시(mm:ss)
+                string timeStr = dt.AddSeconds(lanerTimer[i]).ToString("mm:ss");
+                sb.Append(timeStr).Append(lanes[i]);
+            }
+
+            if (sb.Length == 0)
+                return;
+
+            // 맨 끝의 공백 제거
+            string result = sb.ToString(0, sb.Length - 1);
+
+            SimulateEnter();
+            SendMessage(result);
+            SimulateEnter();
         }
 
         private void timer1_Tick(object sender, EventArgs e) //Variable
