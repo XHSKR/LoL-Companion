@@ -40,6 +40,7 @@
             this.timer2 = new System.Windows.Forms.Timer(this.components);
             this.materialTabControl1 = new MaterialSkin.Controls.MaterialTabControl();
             this.tabPage1 = new System.Windows.Forms.TabPage();
+            this.materialRaisedButton13 = new MaterialSkin.Controls.MaterialRaisedButton();
             this.materialRaisedButton6 = new MaterialSkin.Controls.MaterialRaisedButton();
             this.materialRaisedButton30 = new MaterialSkin.Controls.MaterialRaisedButton();
             this.materialRaisedButton28 = new MaterialSkin.Controls.MaterialRaisedButton();
@@ -228,6 +229,7 @@
             // tabPage1
             // 
             this.tabPage1.BackColor = System.Drawing.Color.White;
+            this.tabPage1.Controls.Add(this.materialRaisedButton13);
             this.tabPage1.Controls.Add(this.materialRaisedButton6);
             this.tabPage1.Controls.Add(this.materialRaisedButton30);
             this.tabPage1.Controls.Add(this.materialRaisedButton28);
@@ -248,6 +250,23 @@
             this.tabPage1.Size = new System.Drawing.Size(968, 385);
             this.tabPage1.TabIndex = 4;
             this.tabPage1.Text = "League Client";
+            // 
+            // materialRaisedButton13
+            // 
+            this.materialRaisedButton13.AutoSize = true;
+            this.materialRaisedButton13.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
+            this.materialRaisedButton13.Depth = 0;
+            this.materialRaisedButton13.Icon = null;
+            this.materialRaisedButton13.Location = new System.Drawing.Point(735, 94);
+            this.materialRaisedButton13.Margin = new System.Windows.Forms.Padding(4, 5, 4, 5);
+            this.materialRaisedButton13.MouseState = MaterialSkin.MouseState.HOVER;
+            this.materialRaisedButton13.Name = "materialRaisedButton13";
+            this.materialRaisedButton13.Primary = true;
+            this.materialRaisedButton13.Size = new System.Drawing.Size(132, 36);
+            this.materialRaisedButton13.TabIndex = 118;
+            this.materialRaisedButton13.Text = "Quick Dodge";
+            this.materialRaisedButton13.UseVisualStyleBackColor = true;
+            this.materialRaisedButton13.Click += new System.EventHandler(this.materialRaisedButton13_Click);
             // 
             // materialRaisedButton6
             // 
@@ -1642,6 +1661,7 @@
         public MaterialSkin.Controls.MaterialRaisedButton materialRaisedButton36;
         public MaterialSkin.Controls.MaterialRaisedButton materialRaisedButton40;
         public MaterialSkin.Controls.MaterialRaisedButton materialRaisedButton6;
+        public MaterialSkin.Controls.MaterialRaisedButton materialRaisedButton13;
     }
 }
 

@@ -14,6 +14,7 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Windows.Forms;
 using WindowsInput;
+using System.Threading.Tasks;
 
 namespace LoL_Companion
 {
@@ -64,29 +65,53 @@ namespace LoL_Companion
 
         private async void Form1_Shown(object sender, EventArgs e)
         {
-            // 1) 버전 정보 가져오기
+            // 1) 버전·챔피언 데이터 URL 포맷
             string versionUrl = "https://ddragon.leagueoflegends.com/api/versions.json";
-            string versionResponse = await httpClient.GetStringAsync(versionUrl);
-            string currentVersion = JArray.Parse(versionResponse).First.ToString();
+            string championUrlFormat = "http://ddragon.leagueoflegends.com/cdn/{0}/data/en_US/champion.json";
 
-            // 2) 챔피언 데이터 가져오기
-            string championUrl = $"http://ddragon.leagueoflegends.com/cdn/{currentVersion}/data/en_US/champion.json";
-            string championResponse = await httpClient.GetStringAsync(championUrl);
-            JObject root = JObject.Parse(championResponse);
+            // 2) 기존 데이터 초기화
+            Champion.Clear();
+            championMap = new Dictionary<string, string>();
 
-            // 3) Dictionary로 매핑 (Name → Key)
-            championMap = root["data"]
-                .Values()
-                .ToDictionary(
-                    ch => ch["name"].ToString(),
-                    ch => ch["key"].ToString()
-                );
+            try
+            {
+                // 3) 현재 버전 가져오기
+                string versionResponse = await httpClient.GetStringAsync(versionUrl);
+                string currentVersion = JArray.Parse(versionResponse)
+                                             .FirstOrDefault()?
+                                             .ToString();
 
-            // 4) 콤보박스에 이름 추가
-            string[] names = championMap.Keys.ToArray();
-            comboBox3.Items.AddRange(names);
-            comboBox4.Items.AddRange(names);
-            comboBox6.Items.AddRange(names);
+                // 4) 챔피언 데이터 가져오기
+                string championUrl = string.Format(championUrlFormat, currentVersion);
+                string championResponse = await httpClient.GetStringAsync(championUrl);
+                JObject root = JObject.Parse(championResponse);
+
+                // 5) Dictionary(Name → Key) 매핑 및 Champion 리스트 빌드
+                championMap = root["data"]
+                    .Values()
+                    .ToDictionary(
+                        ch => ch["name"].ToString(),
+                        ch => ch["key"].ToString()
+                    );
+
+                Champion = championMap
+                    .Select(kv => new string[] { kv.Key, kv.Value })
+                    .ToList();
+
+                // 6) 콤보박스에 챔피언 이름 추가
+                var names = championMap.Keys.ToArray();
+                comboBox3.Items.Clear();
+                comboBox4.Items.Clear();
+                comboBox6.Items.Clear();
+
+                comboBox3.Items.AddRange(names);
+                comboBox4.Items.AddRange(names);
+                comboBox6.Items.AddRange(names);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("챔피언 데이터를 불러오는 동안 오류가 발생했습니다:\n" + ex.Message);
+            }
 
             //load checkbox & radiobox states from ini file
             SettingSaver.LoadSettings();
@@ -975,6 +1000,18 @@ namespace LoL_Companion
             comboBox6.Text = ban;
             materialCheckBox20.Checked = false;
             materialCheckBox20.Checked = true;
+        }
+
+        private async void materialRaisedButton13_Click(object sender, EventArgs e)
+        {
+            // 5) 닷지 요청 전송
+            string dodgePath = "/lol-login/v1/session/invoke" +
+                               "?destination=lcdsServiceProxy&method=call&args=[\"\",\"teambuilder-draft\",\"quitV2\",\"\"]";
+            for (int i = 0; i < 10; i++)
+            {
+                await LCU_Request.POST(dodgePath, "0");
+                await Task.Delay(70);
+            }
         }
 
         private void materialRaisedButton34_Click(object sender, EventArgs e)
