@@ -50,7 +50,6 @@ namespace LoL_Companion
                     WriteSection(writer, "League Client Settings", () =>
                     {
                         writer.WriteLine($"\"{Form1.Object.materialCheckBox8.Text}\" = {Form1.Object.materialCheckBox8.Checked}");
-                        writer.WriteLine($"\"Log-in ID\" = {Form1.Object.comboBox2.Text}");
                     });
 
                     WriteSection(writer, "In-Game Settings", () =>
@@ -130,7 +129,6 @@ namespace LoL_Companion
                 int i = 0;
                 Form1.leagueLocation = states[i++];
                 Form1.Object.materialCheckBox8.Checked = bool.Parse(states[i++]);
-                Form1.Object.comboBox2.Text = states[i++];
                 Form1.Object.materialCheckBox3.Checked = bool.Parse(states[i++]);
                 Form1.Object.materialCheckBox12.Checked = bool.Parse(states[i++]);
                 Form1.Object.materialRadioButton5.Checked = bool.Parse(states[i++]);

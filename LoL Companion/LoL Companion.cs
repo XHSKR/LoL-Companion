@@ -42,8 +42,6 @@ namespace LoL_Companion
             Object = this;
 
             SettingSaver.LoadCredentials();
-            comboBox2.Items.AddRange(leagueID.ToArray());
-            comboBox2.DropDownStyle = ComboBoxStyle.DropDownList;
 
             //Ignore HTTPS certificate error
             ServicePointManager.ServerCertificateValidationCallback += (objSender, certificate, chain, sslPolicyErrors) => true;
@@ -664,46 +662,6 @@ namespace LoL_Companion
             }
         }
 
-        private void AutoLogin(string region)
-        {
-            TerminateLoL();
-
-            try
-            {
-                Process.Start(leagueLocation + @"LeagueClient.exe", $"--locale=\"{region}\"");
-            }
-            catch { }
-
-            bool isComplete = false;
-            while (!isComplete)
-            {
-                try
-                {
-                    string CommandLine = GetCommandLine();
-                    if (string.IsNullOrEmpty(CommandLine)) throw new Exception("CommandLine is empty");
-
-                    var matches = Regex.Match(CommandLine, "(--remoting-auth-token=)([^ ]*)( )(--app-port=)([^ ]*)( )");
-                    string Pass = matches.Groups[2].Value;
-                    string Port = matches.Groups[5].Value;
-
-                    string payload = $"{{\"username\":\"{comboBox2.Text}\", \"password\":\"{leaguePass}\", \"persistLogin\":false}}";
-
-                    byte[] bytes = Encoding.UTF8.GetBytes(payload); // convert from payload string to byte[]
-
-                    using (var client = new WebClient { Credentials = new NetworkCredential("riot", Pass) })
-                    {
-                        client.UploadData("https://127.0.0.1:" + Port + "/rso-auth/v1/session/credentials", "PUT", bytes);
-                    }
-                    isComplete = true;
-                }
-                catch (Exception e)
-                {
-                    Console.WriteLine($"Failed to auto login: {e.Message}");
-                    Thread.Sleep(2000);
-                }
-            }
-        }
-
         private string GetCommandLine()
         {
             string CommandLine = string.Empty;
@@ -721,14 +679,20 @@ namespace LoL_Companion
             return CommandLine;
         }
 
-        private void materialRaisedButton30_Click(object sender, EventArgs e)
-        {
-            AutoLogin("ko_KR");
-        }
-
         private void materialRaisedButton38_Click(object sender, EventArgs e)
         {
-            AutoLogin("en_AU");
+            var exePath = @"C:\Riot Games\Riot Client\RiotClientServices.exe";
+            var arguments = "--launch-product=league_of_legends --launch-patchline=live";
+
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = exePath,
+                Arguments = arguments,
+                UseShellExecute = false,    // 콘솔 창을 띄우지 않으려면 false
+                CreateNoWindow = true       // 콘솔 창을 아예 생성하지 않음
+            };
+
+            Process process = Process.Start(startInfo);
         }
 
         public static string savePath;

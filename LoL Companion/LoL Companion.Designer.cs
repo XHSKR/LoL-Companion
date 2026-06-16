@@ -42,14 +42,12 @@
             this.tabPage1 = new System.Windows.Forms.TabPage();
             this.materialRaisedButton13 = new MaterialSkin.Controls.MaterialRaisedButton();
             this.materialRaisedButton6 = new MaterialSkin.Controls.MaterialRaisedButton();
-            this.materialRaisedButton30 = new MaterialSkin.Controls.MaterialRaisedButton();
             this.materialRaisedButton28 = new MaterialSkin.Controls.MaterialRaisedButton();
             this.materialRaisedButton22 = new MaterialSkin.Controls.MaterialRaisedButton();
             this.materialRaisedButton20 = new MaterialSkin.Controls.MaterialRaisedButton();
             this.textBox1 = new System.Windows.Forms.TextBox();
             this.materialCheckBox9 = new MaterialSkin.Controls.MaterialCheckBox();
             this.materialRaisedButton38 = new MaterialSkin.Controls.MaterialRaisedButton();
-            this.comboBox2 = new System.Windows.Forms.ComboBox();
             this.materialRaisedButton18 = new MaterialSkin.Controls.MaterialRaisedButton();
             this.materialRaisedButton24 = new MaterialSkin.Controls.MaterialRaisedButton();
             this.materialRaisedButton7 = new MaterialSkin.Controls.MaterialRaisedButton();
@@ -231,14 +229,12 @@
             this.tabPage1.BackColor = System.Drawing.Color.White;
             this.tabPage1.Controls.Add(this.materialRaisedButton13);
             this.tabPage1.Controls.Add(this.materialRaisedButton6);
-            this.tabPage1.Controls.Add(this.materialRaisedButton30);
             this.tabPage1.Controls.Add(this.materialRaisedButton28);
             this.tabPage1.Controls.Add(this.materialRaisedButton22);
             this.tabPage1.Controls.Add(this.materialRaisedButton20);
             this.tabPage1.Controls.Add(this.textBox1);
             this.tabPage1.Controls.Add(this.materialCheckBox9);
             this.tabPage1.Controls.Add(this.materialRaisedButton38);
-            this.tabPage1.Controls.Add(this.comboBox2);
             this.tabPage1.Controls.Add(this.materialRaisedButton18);
             this.tabPage1.Controls.Add(this.materialRaisedButton24);
             this.tabPage1.Controls.Add(this.materialRaisedButton7);
@@ -284,23 +280,6 @@
             this.materialRaisedButton6.Text = "Normal Quick Join";
             this.materialRaisedButton6.UseVisualStyleBackColor = true;
             this.materialRaisedButton6.Click += new System.EventHandler(this.materialRaisedButton6_Click);
-            // 
-            // materialRaisedButton30
-            // 
-            this.materialRaisedButton30.AutoSize = true;
-            this.materialRaisedButton30.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
-            this.materialRaisedButton30.Depth = 0;
-            this.materialRaisedButton30.Icon = null;
-            this.materialRaisedButton30.Location = new System.Drawing.Point(560, 331);
-            this.materialRaisedButton30.Margin = new System.Windows.Forms.Padding(4, 5, 4, 5);
-            this.materialRaisedButton30.MouseState = MaterialSkin.MouseState.HOVER;
-            this.materialRaisedButton30.Name = "materialRaisedButton30";
-            this.materialRaisedButton30.Primary = true;
-            this.materialRaisedButton30.Size = new System.Drawing.Size(101, 36);
-            this.materialRaisedButton30.TabIndex = 116;
-            this.materialRaisedButton30.Text = "(Korean)";
-            this.materialRaisedButton30.UseVisualStyleBackColor = true;
-            this.materialRaisedButton30.Click += new System.EventHandler(this.materialRaisedButton30_Click);
             // 
             // materialRaisedButton28
             // 
@@ -388,26 +367,16 @@
             this.materialRaisedButton38.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
             this.materialRaisedButton38.Depth = 0;
             this.materialRaisedButton38.Icon = null;
-            this.materialRaisedButton38.Location = new System.Drawing.Point(560, 290);
+            this.materialRaisedButton38.Location = new System.Drawing.Point(497, 310);
             this.materialRaisedButton38.Margin = new System.Windows.Forms.Padding(4, 5, 4, 5);
             this.materialRaisedButton38.MouseState = MaterialSkin.MouseState.HOVER;
             this.materialRaisedButton38.Name = "materialRaisedButton38";
             this.materialRaisedButton38.Primary = true;
-            this.materialRaisedButton38.Size = new System.Drawing.Size(78, 36);
+            this.materialRaisedButton38.Size = new System.Drawing.Size(143, 36);
             this.materialRaisedButton38.TabIndex = 104;
-            this.materialRaisedButton38.Text = "Log-in";
+            this.materialRaisedButton38.Text = "Start League";
             this.materialRaisedButton38.UseVisualStyleBackColor = true;
             this.materialRaisedButton38.Click += new System.EventHandler(this.materialRaisedButton38_Click);
-            // 
-            // comboBox2
-            // 
-            this.comboBox2.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F);
-            this.comboBox2.FormattingEnabled = true;
-            this.comboBox2.Location = new System.Drawing.Point(462, 311);
-            this.comboBox2.Margin = new System.Windows.Forms.Padding(2);
-            this.comboBox2.Name = "comboBox2";
-            this.comboBox2.Size = new System.Drawing.Size(92, 28);
-            this.comboBox2.TabIndex = 103;
             // 
             // materialRaisedButton18
             // 
@@ -1621,7 +1590,6 @@
         public MaterialSkin.Controls.MaterialTabSelector materialTabSelector1;
         public MaterialSkin.Controls.MaterialCheckBox materialCheckBox10;
         public MaterialSkin.Controls.MaterialRaisedButton materialRaisedButton38;
-        public System.Windows.Forms.ComboBox comboBox2;
         public System.Windows.Forms.TabPage tabPage7;
         public MaterialSkin.Controls.MaterialRadioButton materialRadioButton9;
         public MaterialSkin.Controls.MaterialRadioButton materialRadioButton8;
@@ -1648,7 +1616,6 @@
         public MaterialSkin.Controls.MaterialCheckBox materialCheckBox20;
         public System.Windows.Forms.ComboBox comboBox6;
         public MaterialSkin.Controls.MaterialRaisedButton materialRaisedButton28;
-        public MaterialSkin.Controls.MaterialRaisedButton materialRaisedButton30;
         public MaterialSkin.Controls.MaterialLabel materialLabel13;
         public MaterialSkin.Controls.MaterialSingleLineTextField materialSingleLineTextField1;
         public MaterialSkin.Controls.MaterialCheckBox materialCheckBox19;
