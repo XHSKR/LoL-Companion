@@ -8,21 +8,31 @@ namespace LoL_Companion
 {
     class SettingSaver
     {
-        private const string CredentialsFile = "credentials.conf";
-        private const string SettingsFile = "settings.ini";
+        private readonly string CredentialsFile;
+        private readonly string SettingsFile;
+
+        public SettingSaver(string directory = null)
+        {
+            string settingsDirectory = directory ?? AppDomain.CurrentDomain.BaseDirectory;
+            CredentialsFile = Path.Combine(settingsDirectory, "credentials.conf");
+            SettingsFile = Path.Combine(settingsDirectory, "settings.ini");
+        }
 
         public void LoadCredentials()
         {
+            Form1.leagueID = new List<string>();
+            Form1.leaguePass = string.Empty;
             try
             {
                 if (!File.Exists(CredentialsFile))
                     WriteDefaultCredentials();
 
                 var lines = File.ReadAllLines(CredentialsFile);
-                Form1.leagueID = lines.First().Split(',').ToList();
+                Form1.leagueID = (lines.FirstOrDefault() ?? string.Empty).Split(',')
+                    .Select(id => id.Trim()).Where(id => id.Length > 0).Distinct().ToList();
                 Form1.leaguePass = lines.ElementAtOrDefault(1) ?? string.Empty;
             }
-            catch (IOException ex)
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
             {
                 MessageBox.Show($"크리덴셜 로드 중 오류가 발생했습니다:\n{ex.Message}",
                                 "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
@@ -50,6 +60,7 @@ namespace LoL_Companion
                     WriteSection(writer, "League Client Settings", () =>
                     {
                         writer.WriteLine($"\"{Form1.Object.materialCheckBox8.Text}\" = {Form1.Object.materialCheckBox8.Checked}");
+                        writer.WriteLine($"\"Log-in ID\" = {Form1.Object.comboBox2.Text}");
                     });
 
                     WriteSection(writer, "In-Game Settings", () =>
@@ -121,7 +132,17 @@ namespace LoL_Companion
                     return;
                 }
 
-                var states = File.ReadAllLines(SettingsFile)
+                var settingLines = File.ReadAllLines(SettingsFile);
+                // The removed account field shifted every later setting in old files.
+                // Read it by key and exclude it from the legacy positional settings.
+                string loginLine = settingLines.FirstOrDefault(line => line.TrimStart().StartsWith("\"Log-in ID\" =", StringComparison.Ordinal));
+                if (loginLine != null)
+                {
+                    string loginId = loginLine.Substring(loginLine.IndexOf('=') + 1).Trim();
+                    if (Form1.Object.comboBox2.Items.Contains(loginId)) Form1.Object.comboBox2.SelectedItem = loginId;
+                }
+                var states = settingLines
+                                 .Where(line => !line.TrimStart().StartsWith("\"Log-in ID\" =", StringComparison.Ordinal))
                                  .Where(line => !string.IsNullOrWhiteSpace(line) && line.Contains('='))
                                  .Select(line => line.Substring(line.IndexOf('=') + 1).Trim())
                                  .ToList();

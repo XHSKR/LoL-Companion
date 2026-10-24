@@ -5,6 +5,7 @@ using System.Linq;
 using System.Management;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Security.Authentication;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -20,6 +21,7 @@ namespace LoL_Companion
             // 자체 서명된 인증서 허용 (로컬 호출 전용)
             var handler = new HttpClientHandler
             {
+                SslProtocols = SslProtocols.Tls12,
                 // .NET Framework 4.7.2에서는 self-signed cert 허용 설정
                 ServerCertificateCustomValidationCallback = (sender, cert, chain, errors) => true
             };
@@ -63,6 +65,11 @@ namespace LoL_Companion
 
         public async Task<JObject> GET(string plugIn)
         {
+            return (JObject)await GET_Value(plugIn).ConfigureAwait(false);
+        }
+
+        public async Task<JToken> GET_Value(string plugIn)
+        {
             GetRiotCredentials(plugIn);
 
             using (var request = new HttpRequestMessage(HttpMethod.Get, completeURL))
@@ -74,32 +81,24 @@ namespace LoL_Companion
                     string jsonString = await response.Content
                                             .ReadAsStringAsync()
                                             .ConfigureAwait(false);
-                    return JObject.Parse(jsonString);
+                    return JToken.Parse(jsonString);
                 }
             }
         }
 
         public async Task<JArray> GET_Array(string plugIn)
         {
-            GetRiotCredentials(plugIn);
-
-            using (var request = new HttpRequestMessage(HttpMethod.Get, completeURL))
-            {
-                AddBasicAuthHeader(request);
-                using (var response = await _httpClient.SendAsync(request).ConfigureAwait(false))
-                {
-                    response.EnsureSuccessStatusCode();
-                    string jsonString = await response.Content
-                                            .ReadAsStringAsync()
-                                            .ConfigureAwait(false);
-                    return JArray.Parse(jsonString);
-                }
-            }
+            return (JArray)await GET_Value(plugIn).ConfigureAwait(false);
         }
 
         public async Task POST(string plugIn, string jsonBody)
         {
             await SendWithBodyAsync("POST", plugIn, jsonBody).ConfigureAwait(false);
+        }
+
+        public Task<JToken> POST_Value(string plugIn, string jsonBody)
+        {
+            return SendWithBodyAsync("POST", plugIn, jsonBody);
         }
 
         public async Task PUT(string plugIn, string jsonBody)
@@ -112,7 +111,7 @@ namespace LoL_Companion
             await SendWithBodyAsync("PATCH", plugIn, jsonBody).ConfigureAwait(false);
         }
 
-        private async Task SendWithBodyAsync(string method, string plugIn, string bodyJson)
+        private async Task<JToken> SendWithBodyAsync(string method, string plugIn, string bodyJson)
         {
             GetRiotCredentials(plugIn);
 
@@ -124,7 +123,21 @@ namespace LoL_Companion
 
                 using (var response = await _httpClient.SendAsync(request).ConfigureAwait(false))
                 {
-                    response.EnsureSuccessStatusCode();
+                    if (!response.IsSuccessStatusCode)
+                    {
+                        string responseBody = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                        string reason = response.ReasonPhrase;
+                        try
+                        {
+                            JObject error = JObject.Parse(responseBody);
+                            reason = (string)error["message"] ?? (string)error["errorCode"] ?? reason;
+                        }
+                        catch (Newtonsoft.Json.JsonException) { }
+                        throw new HttpRequestException(string.Format(
+                            "{0} {1}: HTTP {2} - {3}", method, plugIn, (int)response.StatusCode, reason));
+                    }
+                    string json = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                    return string.IsNullOrWhiteSpace(json) ? null : JToken.Parse(json);
                 }
             }
         }

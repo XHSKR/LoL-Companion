@@ -106,6 +106,15 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="LCU_Request.cs" />
+    <Compile Include="RiotClientApi.cs" />
+    <Compile Include="RiotClientLauncher.cs" />
+    <Compile Include="RiotLoginUi.cs" />
+    <Compile Include="AccountLoginService.cs" />
+    <Compile Include="LoL Companion.AccountLogin.cs">
+      <DependentUpon>LoL Companion.cs</DependentUpon>
+    </Compile>
+    <Compile Include="LeagueInstallation.cs" />
+    <Compile Include="PracticeToolLauncher.cs" />
     <Compile Include="LoL Companion.cs">
       <SubType>Form</SubType>
     </Compile>

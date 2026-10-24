@@ -6,11 +6,9 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Management;
 using System.Net;
 using System.Runtime.InteropServices;
 using System.Text;
-using System.Text.RegularExpressions;
 using System.Threading;
 using System.Windows.Forms;
 using WindowsInput;
@@ -41,7 +39,7 @@ namespace LoL_Companion
         {
             Object = this;
 
-            SettingSaver.LoadCredentials();
+            ReloadLoginAccounts();
 
             //Ignore HTTPS certificate error
             ServicePointManager.ServerCertificateValidationCallback += (objSender, certificate, chain, sslPolicyErrors) => true;
@@ -114,29 +112,18 @@ namespace LoL_Companion
             //load checkbox & radiobox states from ini file
             SettingSaver.LoadSettings();
 
-            //Set the location of league folder
-            oldLeagueLocation = leagueLocation;
-            Process[] process = Process.GetProcessesByName("RiotClientServices");
-            try
-            {
-                if (process.Length != 0) //if riot client is running
-                {
-                    leagueLocation = process[0].MainModule.FileName;
-                    leagueLocation = leagueLocation.Substring(0, leagueLocation.Length - 34);
-                    leagueLocation += @"League of Legends\";
-                }
-            }
-            catch { }
+            leagueLocation = LeagueInstallation.Resolve(leagueLocation);
         }
 
         private void Form1_FormClosing(object sender, FormClosingEventArgs e)
         {
+            accountLoginCancellation?.Cancel();
             gHook.unhook();
             SettingSaver.SaveSettings(); //Save checkbox & radiobox states
         }
 
         //Declare Variables
-        string oldLeagueLocation;
+        private bool isConnectingToClient;
 
         string summonerName, summonerId, accountId, region, email;
 
@@ -160,8 +147,8 @@ namespace LoL_Companion
         bool isChatMuted = false;
         bool isReplay = true;
 
-        public static List<string> leagueID;
-        public static string leaguePass;
+        public static List<string> leagueID = new List<string>();
+        public static string leaguePass = string.Empty;
 
         public static bool isConnectedtoWebsocket = false;
 
@@ -274,13 +261,20 @@ namespace LoL_Companion
             SimulateEnter();
         }
 
-        private void timer1_Tick(object sender, EventArgs e) //Variable
+        private async void timer1_Tick(object sender, EventArgs e) //Variable
         {
+            if (IsDisposed || Disposing)
+                return;
+
             Process[] leagueClient = Process.GetProcessesByName("LeagueClientUXRender");
             Process[] pname = Process.GetProcessesByName("League of Legends");
 
             isClientRunning = leagueClient.Length != 0;
             isinGameRunning = pname.Length != 0;
+            foreach (Process process in leagueClient)
+                process.Dispose();
+            foreach (Process process in pname)
+                process.Dispose();
 
             string focusedApp = GetActiveWindowName();
             isClientFocused = focusedApp == "League of Legends";
@@ -288,17 +282,35 @@ namespace LoL_Companion
 
             if (isClientRunning)
             {
-                if (!isConnectedtoWebsocket && isReplay)
+                if (!isConnectedtoWebsocket && isReplay && !isConnectingToClient)
+                {
+                    isConnectingToClient = true;
                     try
                     {
-                        RetrieveAccountInfo();
+                        await RetrieveAccountInfo();
+                        if (IsDisposed || Disposing || !isClientRunning || !isReplay)
+                            return;
+
                         Websocket.ConnectToLCU();
-                        isConnectedtoWebsocket = true;
+                        isConnectedtoWebsocket = Websocket.LCU != null && Websocket.LCU.IsAlive;
                     }
-                    catch { }
+                    catch (Exception ex)
+                    {
+                        isConnectedtoWebsocket = false;
+                        // Avoid logging credentials or request headers.
+                        Trace.WriteLine("LCU connection failed: " + ex.GetType().Name);
+                    }
+                    finally
+                    {
+                        isConnectingToClient = false;
+                    }
+                }
             }
             else
                 isConnectedtoWebsocket = false;
+
+            if (IsDisposed || Disposing)
+                return;
 
             if (isinGameRunning)
                 HandleInGame();
@@ -306,42 +318,20 @@ namespace LoL_Companion
                 ResetInGame();
         }
 
-        private async void RetrieveAccountInfo()
+        private async Task RetrieveAccountInfo()
         {
-            // 1) RiotClientServices 프로세스 탐색 및 경로 설정
-            Process[] processes = Process.GetProcessesByName("RiotClientServices");
-            if (processes.Length > 0)
-            {
-                var exePath = processes[0].MainModule?.FileName;
-                if (!string.IsNullOrEmpty(exePath))
-                {
-                    leagueLocation = Path.Combine(
-                        Path.GetDirectoryName(exePath) ?? string.Empty,
-                        "League of Legends");
-                }
-                else
-                {
-                    // 프로세스 정보가 비어 있으면 기본값으로 처리
-                    leagueLocation = oldLeagueLocation;
-                }
-            }
-            else
-            {
-                // RiotClientServices가 실행 중이 아니면 리턴하거나 기본값 사용
-                leagueLocation = oldLeagueLocation;
-            }
+            // Keep the saved installation if process inspection is unavailable.
+            leagueLocation = LeagueInstallation.Resolve(leagueLocation);
 
-            // 2) Summoner 정보 가져오기 (실패 시 빈 JObject 반환하도록 GET 수정 권장)
-            JObject currentSummoner = null;
-            try
-            {
-                currentSummoner = await LCU_Request.GET("/lol-summoner/v1/current-summoner");
-            }
-            catch
-            {
-                // 무시하거나 로깅만 하고 넘어갑니다.
-            }
-            summonerName = currentSummoner?["displayName"]?.ToString() ?? "Unknown";
+            // Let the connection attempt handle authentication/API failures and retry later.
+            JObject currentSummoner = await LCU_Request.GET("/lol-summoner/v1/current-summoner");
+            string gameName = currentSummoner?["gameName"]?.ToString();
+            string tagLine = currentSummoner?["tagLine"]?.ToString();
+            summonerName = !string.IsNullOrWhiteSpace(gameName)
+                ? gameName + (string.IsNullOrWhiteSpace(tagLine) ? string.Empty : "#" + tagLine)
+                : currentSummoner?["displayName"]?.ToString();
+            if (string.IsNullOrWhiteSpace(summonerName))
+                summonerName = "Unknown";
             summonerId = currentSummoner?["summonerId"]?.ToString() ?? string.Empty;
 
             // 3) 로그인 크리덴셜 가져오기
@@ -382,6 +372,9 @@ namespace LoL_Companion
                 region = "Non-Riot Server (PBE, China, Garena)";
                 // leagueLocation은 기존 값 유지
             }
+
+            if (IsDisposed || Disposing)
+                return;
 
             // 7) UI 업데이트
             materialLabel14.Text =
@@ -591,7 +584,7 @@ namespace LoL_Companion
 
         private void materialRaisedButton18_Click(object sender, EventArgs e)
         {
-            Process.Start(leagueLocation + @"LeagueClient.exe", "--allow-multiple-clients --locale=\"en_AU\"");
+            Process.Start(Path.Combine(leagueLocation, "LeagueClient.exe"), "--allow-multiple-clients --locale=\"en_AU\"");
         }
 
         private async void materialRaisedButton24_Click(object sender, EventArgs e)
@@ -608,33 +601,24 @@ namespace LoL_Companion
 
         private async void materialRaisedButton22_Click(object sender, EventArgs e)
         {
+            if (!materialRaisedButton22.Enabled)
+                return;
+
+            materialRaisedButton22.Enabled = false;
             try
             {
-                string payload = @"
-                {
-                  ""customGameLobby"": {
-                    ""configuration"": {
-                      ""gameMode"": ""PRACTICETOOL"",
-                      ""gameMutator"": """",
-                      ""gameServerRegion"": """",
-                      ""mapId"": 11,
-                      ""mutators"": { ""id"": 1 },
-                      ""spectatorPolicy"": ""AllAllowed"",
-                      ""teamSize"": 5
-                    },
-                    ""lobbyName"": ""PRACTICETOOL NO LIMIT"",
-                    ""lobbyPassword"": null
-                  },
-                  ""isCustom"": true
-                }";
-                await LCU_Request.POST("/lol-lobby/v2/lobby", payload);
-
-                await LCU_Request.POST("/lol-lobby/v1/lobby/custom/start-champ-select", "0");
-
+                await new PracticeToolLauncher(LCU_Request).StartAsync();
             }
-            catch
+            catch (Exception ex)
             {
-                MessageBox.Show("Error while requesting POST method.");
+                if (!IsDisposed && !Disposing)
+                    MessageBox.Show(this, "연습 모드를 시작하지 못했습니다.\n" + ex.Message,
+                        "Practice Tool", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                if (!IsDisposed && !Disposing)
+                    materialRaisedButton22.Enabled = true;
             }
         }
 
@@ -660,39 +644,6 @@ namespace LoL_Companion
                     process.Kill();
                 }
             }
-        }
-
-        private string GetCommandLine()
-        {
-            string CommandLine = string.Empty;
-
-            var process = Process.GetProcessesByName("RiotClientUx").FirstOrDefault();
-            if (process == null) return CommandLine;
-
-            using (var searcher = new ManagementObjectSearcher(
-                   $"SELECT CommandLine FROM Win32_Process WHERE ProcessId = {process.Id}"))
-            using (var objects = searcher.Get())
-            {
-                CommandLine = objects.Cast<ManagementBaseObject>().SingleOrDefault()?["CommandLine"]?.ToString();
-            }
-
-            return CommandLine;
-        }
-
-        private void materialRaisedButton38_Click(object sender, EventArgs e)
-        {
-            var exePath = @"C:\Riot Games\Riot Client\RiotClientServices.exe";
-            var arguments = "--launch-product=league_of_legends --launch-patchline=live";
-
-            var startInfo = new ProcessStartInfo
-            {
-                FileName = exePath,
-                Arguments = arguments,
-                UseShellExecute = false,    // 콘솔 창을 띄우지 않으려면 false
-                CreateNoWindow = true       // 콘솔 창을 아예 생성하지 않음
-            };
-
-            Process process = Process.Start(startInfo);
         }
 
         public static string savePath;
