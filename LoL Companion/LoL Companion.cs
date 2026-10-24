@@ -919,13 +919,24 @@ namespace LoL_Companion
 
         private async void materialRaisedButton13_Click(object sender, EventArgs e)
         {
-            // 5) 닷지 요청 전송
-            string dodgePath = "/lol-login/v1/session/invoke" +
-                               "?destination=lcdsServiceProxy&method=call&args=[\"\",\"teambuilder-draft\",\"quitV2\",\"\"]";
-            for (int i = 0; i < 10; i++)
+            if (!materialRaisedButton13.Enabled)
+                return;
+            materialRaisedButton13.Enabled = false;
+            try
             {
-                await LCU_Request.POST(dodgePath, "0");
-                await Task.Delay(70);
+                using (var server = new LeagueEdgeClient(LCU_Request))
+                    await new QuickDodgeService(LCU_Request, server).DodgeAsync();
+            }
+            catch (Exception ex)
+            {
+                if (!IsDisposed && !Disposing)
+                    MessageBox.Show(this, "닷지를 완료하지 못했습니다.\n" + ex.Message,
+                        "Quick Dodge", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                if (!IsDisposed && !Disposing)
+                    materialRaisedButton13.Enabled = true;
             }
         }
 

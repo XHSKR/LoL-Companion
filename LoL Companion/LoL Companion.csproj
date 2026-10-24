@@ -115,6 +115,8 @@
     </Compile>
     <Compile Include="LeagueInstallation.cs" />
     <Compile Include="PracticeToolLauncher.cs" />
+    <Compile Include="LeagueEdgeClient.cs" />
+    <Compile Include="QuickDodgeService.cs" />
     <Compile Include="LoL Companion.cs">
       <SubType>Form</SubType>
     </Compile>
