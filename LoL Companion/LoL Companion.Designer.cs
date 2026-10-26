@@ -35,6 +35,7 @@ namespace LoL_Companion
             this.clientLocaleComboBox = new System.Windows.Forms.ComboBox();
             this.clientStatusList = new System.Windows.Forms.ListView();
             this.launchClientsButton = new System.Windows.Forms.Button();
+            this.switchAccountButton = new System.Windows.Forms.Button();
             this.reloadAccountsButton = new System.Windows.Forms.Button();
             this.cancelMultiLoginButton = new System.Windows.Forms.Button();
             this.multiClientStatusLabel = new System.Windows.Forms.Label();
@@ -1504,7 +1505,7 @@ namespace LoL_Companion
                 this.clientCountLabel, this.launchAccountsList, this.clientLocaleComboBox,
                 this.launchClientsButton, this.reloadAccountsButton, this.cancelMultiLoginButton,
                 this.clientStatusList, this.runningClientsLabel, this.multiClientStatusLabel,
-                  });
+                this.switchAccountButton,  });
             this.clientCountLabel.Location = new System.Drawing.Point(20, 20);
             this.clientCountLabel.Size = new System.Drawing.Size(130, 25);
             this.clientCountLabel.Text = "선택한 계정: 0개";
@@ -1549,6 +1550,7 @@ namespace LoL_Companion
             this.clientStatusList.FullRowSelect = true;
             this.clientStatusList.HideSelection = false;
             this.clientStatusList.MultiSelect = false;
+            this.clientStatusList.SelectedIndexChanged += new System.EventHandler(this.clientStatusList_SelectedIndexChanged);
             this.clientStatusList.Columns.Add("계정", 150);
             this.clientStatusList.Columns.Add("상태", 170);
             this.clientStatusList.Columns.Add("PID", 60);
@@ -1556,6 +1558,13 @@ namespace LoL_Companion
             this.clientStatusList.TabIndex = 7;
             this.runningClientsLabel.Location = new System.Drawing.Point(350, 247);
             this.runningClientsLabel.Size = new System.Drawing.Size(590, 20);
+            this.switchAccountButton.Name = "switchAccountButton";
+            this.switchAccountButton.Location = new System.Drawing.Point(350, 275);
+            this.switchAccountButton.Size = new System.Drawing.Size(280, 32);
+            this.switchAccountButton.Text = "닷지 후 선택 계정 실행";
+            this.switchAccountButton.Enabled = false;
+            this.switchAccountButton.TabIndex = 8;
+            this.switchAccountButton.Click += new System.EventHandler(this.switchAccountButton_Click);
             this.multiClientStatusLabel.Name = "multiClientStatusLabel";
             this.multiClientStatusLabel.Location = new System.Drawing.Point(20, 346);
             this.multiClientStatusLabel.Size = new System.Drawing.Size(920, 36);
@@ -1683,6 +1692,7 @@ namespace LoL_Companion
         private System.Windows.Forms.ComboBox clientLocaleComboBox;
         private System.Windows.Forms.ListView clientStatusList;
         private System.Windows.Forms.Button launchClientsButton;
+        private System.Windows.Forms.Button switchAccountButton;
         private System.Windows.Forms.Button reloadAccountsButton;
         private System.Windows.Forms.Button cancelMultiLoginButton;
         private System.Windows.Forms.Label multiClientStatusLabel;

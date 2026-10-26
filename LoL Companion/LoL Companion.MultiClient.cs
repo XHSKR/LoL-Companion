@@ -58,6 +58,7 @@ namespace LoL_Companion
             launchClientsButton.Enabled = launchAccountsList.Enabled = clientLocaleComboBox.Enabled =
                 reloadAccountsButton.Enabled = startLeagueButton.Enabled = !busy;
             cancelMultiLoginButton.Enabled = busy;
+            UpdateClientActionButtons();
         }
 
         private async Task RunClientActionAsync(Func<LCU_Request, Task> action, params string[] phases)
@@ -152,6 +153,7 @@ namespace LoL_Companion
                     displayRows.Add(new ListViewItem(new[] { client.Name, client.Phase,
                         client.Connection.ProcessId.ToString(), client.Error ?? "" }) { Tag = "league:" + client.Connection.Key });
                 UpdateClientRows(displayRows);
+                UpdateClientActionButtons();
                 foreach (var client in snapshot.Where(client => client.Phase != "Unavailable" &&
                     (client.Events.LCU == null || !client.Events.LCU.IsAlive)))
                 {

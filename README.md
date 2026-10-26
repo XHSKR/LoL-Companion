@@ -46,6 +46,14 @@ so reordering `credentials.conf` does not change which accounts are checked. Exi
 and legacy files with the removed Log-in ID entry remain readable. Periodic status updates
 modify existing table rows and preserve their selection, focus and scroll position.
 
+Select a signed-in Riot account whose League client is closed, then press **닷지 후 선택 계정 실행**.
+The button is enabled when exactly one League client is in champion select. The workflow
+verifies the selected account, requests the existing server dodge endpoint, closes the old
+League through its owning Riot Client, waits for that process to exit, then launches League
+through the selected account's existing Riot session. It verifies the new League identity.
+It skips the normal post-dodge phase wait and polls process exit directly, without signing
+in again or adding a fixed launch delay. Failed dodge/close requests stop the next launch.
+
 Live verification on 2026-10-25 completed three distinct saved-account logins in separate Riot
 instances, checked simultaneous authenticated session identities repeatedly, and confirmed that
 no additional League process started. Both UIA field focus and the clipboard fallback were

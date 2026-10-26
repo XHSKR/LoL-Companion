@@ -15,7 +15,7 @@ namespace LoL_Companion
             this.server = server;
         }
 
-        public async Task DodgeAsync()
+        public async Task DodgeAsync(bool waitForPhaseExit = true)
         {
             string phase = (string)await lcu.GET_Value("/lol-gameflow/v1/gameflow-phase");
             if (phase != "ChampSelect")
@@ -28,6 +28,7 @@ namespace LoL_Companion
 
             // Send one server request. Never close the client or fall back to a different exit API.
             await server.QuitChampionSelectAsync(gameId);
+            if (!waitForPhaseExit) return;
             for (int attempt = 0; attempt < 40; attempt++)
             {
                 phase = (string)await lcu.GET_Value("/lol-gameflow/v1/gameflow-phase");
