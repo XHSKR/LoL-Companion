@@ -1,4 +1,4 @@
-﻿using Newtonsoft.Json.Linq;
+using Newtonsoft.Json.Linq;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -15,7 +15,19 @@ namespace LoL_Companion
     class Websocket
     {
         // Instantiation
-        LCU_Request LCU_Request = new LCU_Request();
+        private readonly LCU_Request LCU_Request;
+        private bool disposed;
+        private readonly System.Threading.SemaphoreSlim eventGate = new System.Threading.SemaphoreSlim(1);
+        private readonly Action<string> phaseChanged;
+        public Websocket(LCU_Request request, Action<string> phaseChanged = null)
+        { LCU_Request = request; this.phaseChanged = phaseChanged; }
+
+        public void Disconnect()
+        {
+            disposed = true;
+            LCU?.CloseAsync();
+            LCU_Debug?.CloseAsync();
+        }
 
         [DllImport("user32.dll")] private static extern IntPtr FindWindow(string className, string windowTitle);
         [DllImport("user32.dll")] static extern bool ShowWindow(IntPtr hWnd, ShowWindowEnum flags);
@@ -34,10 +46,12 @@ namespace LoL_Companion
         {
             if (!Form1.isClientFocused)
             {
-                Task.Delay(50);
-                //Minimize League window
-                IntPtr wdwIntPtr = FindWindow(null, "League of Legends");
-                ShowWindow(wdwIntPtr, ShowWindowEnum.Minimize);
+                try
+                {
+                    using (var process = System.Diagnostics.Process.GetProcessById(LCU_Request.Connection.ProcessId))
+                        ShowWindow(process.MainWindowHandle, ShowWindowEnum.Minimize);
+                }
+                catch (ArgumentException) { }
             }
         }
 
@@ -147,19 +161,46 @@ namespace LoL_Companion
 
                 string message = $"{name}: {string.Join(", ", counts)}";
                 Console.WriteLine(message);
-                SendChatinChampSelect(message);
+                await SendChatinChampSelect(message);
             }
         }
 
         public void ConnectToLCU()
         {
-            LCU = new WebSocket($"wss://127.0.0.1:{LCU_Request.riotPort}/", "wamp");
-            LCU.SetCredentials("riot", LCU_Request.riotPass, true);
+            if (disposed || (LCU != null && LCU.IsAlive)) return;
+            LCU?.CloseAsync();
+            LCU = new WebSocket($"wss://127.0.0.1:{LCU_Request.Connection.Api.Port}/", "wamp");
+            LCU.WaitTime = TimeSpan.FromSeconds(2);
+            LCU.SetCredentials("riot", LCU_Request.Connection.Api.Token, true);
             LCU.SslConfiguration.EnabledSslProtocols = SslProtocols.Tls12;
             LCU.SslConfiguration.ServerCertificateValidationCallback =
                 (send, certificate, chain, sslPolicyErrors) => true;
 
-            LCU.OnMessage += async (s, e) =>
+            LCU.OnMessage += (s, e) =>
+            {
+                var form = Form1.Object;
+                if (disposed || form == null || form.IsDisposed || form.Disposing) return;
+                try
+                {
+                    form.BeginInvoke(new Action(async () =>
+                    {
+                        if (disposed || form.IsDisposed || form.Disposing) return;
+                        await eventGate.WaitAsync();
+                        try { if (!disposed) await HandleMessageAsync(e); }
+                        catch (Exception ex) { System.Diagnostics.Trace.WriteLine("LCU event failed: " + ex.GetType().Name); }
+                        finally { eventGate.Release(); }
+                    }));
+                }
+                catch (InvalidOperationException) { }
+            };
+
+            LCU.Connect();
+            LCU.Send("[5, \"OnJsonApiEvent_lol-gameflow_v1_gameflow-phase\"]");
+            LCU.Send("[5, \"OnJsonApiEvent_lol-champ-select_v1_session\"]");
+            LCU.Send("[5, \"OnJsonApiEvent_lol-champ-select_v1_summoners\"]");
+        }
+
+        private async Task HandleMessageAsync(MessageEventArgs e)
             {
                 if (!e.IsText)
                     return;
@@ -203,6 +244,7 @@ namespace LoL_Companion
                 // 게임플로우 단계 처리
                 if (uri.Contains("/lol-gameflow/v1/gameflow-phase"))
                 {
+                    phaseChanged?.Invoke(data);
                     if (data == "None")
                     {
                         foreach (var name in eventNames)
@@ -222,11 +264,8 @@ namespace LoL_Companion
 
                     if (data == "ReadyCheck")
                     {
-                        if (Form1.Object.materialCheckBox8.Checked)
-                        {
-                            MinimizeClient();
-                            await LCU_Request.POST("/lol-matchmaking/v1/ready-check/accept", "0");
-                        }
+                        // All ready checks are handled by the per-client polling service,
+                        // including ones already pending when Companion starts.
                         isChatAvailable = false;
                         chat_in_finalization = false;
                     }
@@ -263,11 +302,8 @@ namespace LoL_Companion
                                 }
                                 catch { }
 
-                                while (!isChatAvailable)
-                                {
-                                    for (int i = 0; i < 5; i++)
-                                        SendChatinChampSelect(position);
-                                }
+                                for (int attempt = 0; attempt < 5 && !isChatAvailable && !disposed; attempt++)
+                                { await SendChatinChampSelect(position); if (!isChatAvailable) await Task.Delay(300); }
                                 isChatAvailable = false;
                             }
                         }
@@ -284,12 +320,16 @@ namespace LoL_Companion
                 // Finalization 단계 채팅
                 if (uri.Contains("/lol-champ-select/v1/session"))
                 {
+                    if (Form1.Object.materialCheckBox20.Checked)
+                        await CompleteActionAsync("ban", Form1.selectedBanChampionId, true);
+                    if (Form1.Object.materialCheckBox14.Checked)
+                        await CompleteActionAsync("pick", Form1.selectedChampionId, Form1.Object.materialCheckBox16.Checked);
                     string phase = json["data"]?["timer"]?["phase"]?.ToString() ?? string.Empty;
                     if (phase == "FINALIZATION" && !chat_in_finalization)
                     {
                         await CheckEnemyTeamCCAsync();
                         if (Form1.Object.materialCheckBox21.Checked)
-                            SendChatinChampSelect(Form1.Object.materialSingleLineTextField2.Text);
+                            await SendChatinChampSelect(Form1.Object.materialSingleLineTextField2.Text);
 
                         chat_in_finalization = true;
                     }
@@ -332,14 +372,10 @@ namespace LoL_Companion
                         // 밴
                         if (Form1.Object.materialCheckBox20.Checked && actionType == "ban")
                         {
-                            if (Form1.Object.materialCheckBox19.Checked)
-                                SendChatinChampSelect(Form1.Object.materialSingleLineTextField1.Text);
+
 
                             string payload = $"{{\"championId\":{Form1.selectedBanChampionId},\"completed\":true}}";
-                            await LCU_Request.PATCH(
-                                $"/lol-champ-select/v1/session/actions/{localPlayerCellId}",
-                                payload
-                            );
+                            await CompleteActionAsync("ban", Form1.selectedBanChampionId, true);
 
                             MinimizeClient();
                         }
@@ -354,60 +390,36 @@ namespace LoL_Companion
                         }
                     }
                 }
-            };
-
-            LCU.Connect();
-            LCU.Send("[5, \"OnJsonApiEvent_lol-gameflow_v1_gameflow-phase\"]");
-            Form1.isConnectedtoWebsocket = true;
         }
 
         public WebSocket LCU_Debug;
 
-        private async Task PickChampion(string queueType)
+        private Task PickChampion(string queueType)
         {
-            // Find my CellId (pick order)
-            JObject session = await LCU_Request.GET("/lol-champ-select/v1/session");
-            string localPlayerCellId = session["localPlayerCellId"].ToString();
-
-            string id_ = "";
-            switch (localPlayerCellId)
-            {
-                case "0": id_ = "10"; break;
-                case "5": id_ = "11"; break;
-                case "6": id_ = "12"; break;
-                case "1": id_ = "13"; break;
-                case "2": id_ = "14"; break;
-                case "7": id_ = "15"; break;
-                case "8": id_ = "16"; break;
-                case "3": id_ = "17"; break;
-                case "4": id_ = "18"; break;
-                case "9": id_ = "19"; break;
-            }
-
-            if (queueType == "draft")
-            {
-                string payload = $"{{\"championId\":{Form1.selectedChampionId}, \"completed\": true}}";
-                await LCU_Request.PATCH($"/lol-champ-select/v1/session/actions/{id_}", payload);
-            }
-            else
-            {
-                string payload;
-
-                if (Form1.Object.materialCheckBox16.Checked) // lock-in
-                    payload = $"{{\"championId\":{Form1.selectedChampionId}, \"completed\": true}}";
-                else // no lock-in
-                    payload = $"{{\"championId\":{Form1.selectedChampionId}, \"completed\": false}}";
-
-                if (queueType == "blind")
-                    await LCU_Request.PATCH($"/lol-champ-select/v1/session/actions/{localPlayerCellId}", payload);
-
-                if (queueType == "practice")
-                    await LCU_Request.PATCH($"/lol-champ-select/v1/session/actions/1", payload);
-            }
+            return CompleteActionAsync("pick", Form1.selectedChampionId,
+                queueType == "draft" || Form1.Object.materialCheckBox16.Checked);
         }
 
+        private async Task<bool> CompleteActionAsync(string type, string championId, bool completed)
+        {
+            int champion;
+            if (!int.TryParse(championId, out champion) || champion <= 0 || disposed) return false;
+            JObject session = await LCU_Request.GET("/lol-champ-select/v1/session");
+            int? cell = (int?)session["localPlayerCellId"];
+            var actions = session["actions"] as JArray;
+            var action = actions?.OfType<JArray>().SelectMany(group => group.OfType<JObject>())
+                .FirstOrDefault(item => (int?)item["actorCellId"] == cell && (string)item["type"] == type &&
+                    (bool?)item["isInProgress"] == true && (bool?)item["completed"] != true);
+            if (action == null) return false;
+            if (!completed && (int?)action["championId"] == champion) return false;
+            await LCU_Request.PATCH("/lol-champ-select/v1/session/actions/" + (int)action["id"],
+                new JObject { ["championId"] = champion, ["completed"] = completed }.ToString());
+            if (type == "ban" && Form1.Object != null && Form1.Object.materialCheckBox19.Checked)
+                await SendChatinChampSelect(Form1.Object.materialSingleLineTextField1.Text);
+            return true;
+        }
         bool isChatAvailable = false;
-        private async void SendChatinChampSelect(string body)
+        private async Task SendChatinChampSelect(string body)
         {
             JArray jsonArray = await LCU_Request.GET_Array("/lol-chat/v1/conversations");
             string id = "";
@@ -427,15 +439,16 @@ namespace LoL_Companion
             {
                 isChatAvailable = true;
 
-                string payload = $"{{\"type\":\"chat\", \"isHistorical\":false, \"body\":\"{body}\"}}";
+                string payload = new JObject { ["type"] = "chat", ["isHistorical"] = false, ["body"] = body }.ToString();
                 await LCU_Request.POST($"/lol-chat/v1/conversations/{id}/messages", payload);
             }
         }
 
         public void Debug()
         {
-            LCU_Debug = new WebSocket($"wss://127.0.0.1:{LCU_Request.riotPort}/", "wamp");
-            LCU_Debug.SetCredentials("riot", LCU_Request.riotPass, true);
+            if (disposed || (LCU_Debug != null && LCU_Debug.IsAlive)) return;
+            LCU_Debug = new WebSocket($"wss://127.0.0.1:{LCU_Request.Connection.Api.Port}/", "wamp");
+            LCU_Debug.SetCredentials("riot", LCU_Request.Connection.Api.Token, true);
             LCU_Debug.SslConfiguration.EnabledSslProtocols = SslProtocols.Tls12;
             LCU_Debug.SslConfiguration.ServerCertificateValidationCallback = (send, certificate, chain, sslPolicyErrors) => true;
             LCU_Debug.OnMessage += (s, e) =>
@@ -443,7 +456,8 @@ namespace LoL_Companion
                 if (e.IsText)
                 {
                     var eventArray = JArray.Parse(e.Data);
-                    System.IO.File.AppendAllText(Form1.savePath, eventArray + "\n\n\n", Encoding.GetEncoding("UTF-8"));
+                    lock (debugLogGate)
+                        System.IO.File.AppendAllText(Form1.savePath, "PID " + LCU_Request.Connection.ProcessId + "\n" + eventArray + "\n\n\n", Encoding.GetEncoding("UTF-8"));
                 }
             };
             LCU_Debug.Connect();
@@ -459,5 +473,6 @@ namespace LoL_Companion
                 LCU_Debug.Send(wsMessage);
             }
         }
+        private static readonly object debugLogGate = new object();
     }
 }

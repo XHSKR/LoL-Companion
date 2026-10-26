@@ -1,4 +1,4 @@
-﻿namespace LoL_Companion
+namespace LoL_Companion
 {
     partial class Form1
     {
@@ -30,6 +30,16 @@
         {
             this.components = new System.ComponentModel.Container();
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(Form1));
+            this.clientsTabPage = new System.Windows.Forms.TabPage();
+            this.launchAccountsList = new System.Windows.Forms.CheckedListBox();
+            this.clientLocaleComboBox = new System.Windows.Forms.ComboBox();
+            this.clientStatusList = new System.Windows.Forms.ListView();
+            this.launchClientsButton = new System.Windows.Forms.Button();
+            this.reloadAccountsButton = new System.Windows.Forms.Button();
+            this.cancelMultiLoginButton = new System.Windows.Forms.Button();
+            this.multiClientStatusLabel = new System.Windows.Forms.Label();
+            this.runningClientsLabel = new System.Windows.Forms.Label();
+            this.clientCountLabel = new System.Windows.Forms.Label();
             this.timer1 = new System.Windows.Forms.Timer(this.components);
             this.textBox2 = new System.Windows.Forms.TextBox();
             this.textBox3 = new System.Windows.Forms.TextBox();
@@ -47,12 +57,7 @@
             this.materialRaisedButton20 = new MaterialSkin.Controls.MaterialRaisedButton();
             this.textBox1 = new System.Windows.Forms.TextBox();
             this.materialCheckBox9 = new MaterialSkin.Controls.MaterialCheckBox();
-            this.materialRaisedButton38 = new MaterialSkin.Controls.MaterialRaisedButton();
-            this.materialRaisedButton30 = new MaterialSkin.Controls.MaterialRaisedButton();
-            this.comboBox2 = new System.Windows.Forms.ComboBox();
-            this.cancelLoginButton = new System.Windows.Forms.Button();
             this.startLeagueButton = new MaterialSkin.Controls.MaterialRaisedButton();
-            this.loginStatusLabel = new System.Windows.Forms.Label();
             this.materialRaisedButton18 = new MaterialSkin.Controls.MaterialRaisedButton();
             this.materialRaisedButton24 = new MaterialSkin.Controls.MaterialRaisedButton();
             this.materialRaisedButton7 = new MaterialSkin.Controls.MaterialRaisedButton();
@@ -216,6 +221,7 @@
             // materialTabControl1
             // 
             this.materialTabControl1.Controls.Add(this.tabPage1);
+            this.materialTabControl1.Controls.Add(this.clientsTabPage);
             this.materialTabControl1.Controls.Add(this.tabPage2);
             this.materialTabControl1.Controls.Add(this.tabPage4);
             this.materialTabControl1.Controls.Add(this.tabPage5);
@@ -239,12 +245,7 @@
             this.tabPage1.Controls.Add(this.materialRaisedButton20);
             this.tabPage1.Controls.Add(this.textBox1);
             this.tabPage1.Controls.Add(this.materialCheckBox9);
-            this.tabPage1.Controls.Add(this.materialRaisedButton38);
-            this.tabPage1.Controls.Add(this.materialRaisedButton30);
-            this.tabPage1.Controls.Add(this.comboBox2);
-            this.tabPage1.Controls.Add(this.cancelLoginButton);
             this.tabPage1.Controls.Add(this.startLeagueButton);
-            this.tabPage1.Controls.Add(this.loginStatusLabel);
             this.tabPage1.Controls.Add(this.materialRaisedButton18);
             this.tabPage1.Controls.Add(this.materialRaisedButton24);
             this.tabPage1.Controls.Add(this.materialRaisedButton7);
@@ -370,61 +371,6 @@
             this.materialCheckBox9.Text = "Delay the game start";
             this.materialCheckBox9.UseVisualStyleBackColor = true;
             this.materialCheckBox9.CheckedChanged += new System.EventHandler(this.materialCheckBox9_CheckedChanged);
-            // 
-            // materialRaisedButton38
-            // 
-            this.materialRaisedButton38.AutoSize = true;
-            this.materialRaisedButton38.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
-            this.materialRaisedButton38.Depth = 0;
-            this.materialRaisedButton38.Icon = null;
-            this.materialRaisedButton38.Location = new System.Drawing.Point(558, 282);
-            this.materialRaisedButton38.Margin = new System.Windows.Forms.Padding(4, 5, 4, 5);
-            this.materialRaisedButton38.MouseState = MaterialSkin.MouseState.HOVER;
-            this.materialRaisedButton38.Name = "materialRaisedButton38";
-            this.materialRaisedButton38.Primary = true;
-            this.materialRaisedButton38.Size = new System.Drawing.Size(143, 36);
-            this.materialRaisedButton38.TabIndex = 104;
-            this.materialRaisedButton38.Text = "Log-in (EN)";
-            this.materialRaisedButton38.UseVisualStyleBackColor = true;
-            this.materialRaisedButton38.Click += new System.EventHandler(this.materialRaisedButton38_Click);
-            //
-            // materialRaisedButton30
-            //
-            this.materialRaisedButton30.AutoSize = true;
-            this.materialRaisedButton30.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
-            this.materialRaisedButton30.Depth = 0;
-            this.materialRaisedButton30.Icon = null;
-            this.materialRaisedButton30.Location = new System.Drawing.Point(558, 329);
-            this.materialRaisedButton30.MouseState = MaterialSkin.MouseState.HOVER;
-            this.materialRaisedButton30.Name = "materialRaisedButton30";
-            this.materialRaisedButton30.Primary = true;
-            this.materialRaisedButton30.Size = new System.Drawing.Size(133, 36);
-            this.materialRaisedButton30.TabIndex = 105;
-            this.materialRaisedButton30.Text = "Log-in (KO)";
-            this.materialRaisedButton30.UseVisualStyleBackColor = true;
-            this.materialRaisedButton30.Click += new System.EventHandler(this.materialRaisedButton30_Click);
-            //
-            // comboBox2
-            //
-            this.comboBox2.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
-            this.comboBox2.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F);
-            this.comboBox2.FormattingEnabled = true;
-            this.comboBox2.Location = new System.Drawing.Point(418, 290);
-            this.comboBox2.Name = "comboBox2";
-            this.comboBox2.Size = new System.Drawing.Size(130, 28);
-            this.comboBox2.TabIndex = 103;
-            this.comboBox2.AccessibleName = "Login account";
-            //
-            // cancelLoginButton
-            //
-            this.cancelLoginButton.Enabled = false;
-            this.cancelLoginButton.Location = new System.Drawing.Point(418, 337);
-            this.cancelLoginButton.Name = "cancelLoginButton";
-            this.cancelLoginButton.Size = new System.Drawing.Size(130, 28);
-            this.cancelLoginButton.TabIndex = 106;
-            this.cancelLoginButton.Text = "Cancel Login";
-            this.cancelLoginButton.UseVisualStyleBackColor = true;
-            this.cancelLoginButton.Click += new System.EventHandler(this.cancelLoginButton_Click);
             //
             // startLeagueButton
             //
@@ -438,19 +384,10 @@
             this.startLeagueButton.Primary = true;
             this.startLeagueButton.Size = new System.Drawing.Size(143, 36);
             this.startLeagueButton.TabIndex = 119;
-            this.startLeagueButton.Text = "Start League";
+            this.startLeagueButton.Text = "Open Riot Client";
             this.startLeagueButton.UseVisualStyleBackColor = true;
             this.startLeagueButton.Click += new System.EventHandler(this.startLeagueButton_Click);
             //
-            // loginStatusLabel
-            //
-            this.loginStatusLabel.AutoEllipsis = true;
-            this.loginStatusLabel.Location = new System.Drawing.Point(22, 341);
-            this.loginStatusLabel.Name = "loginStatusLabel";
-            this.loginStatusLabel.Size = new System.Drawing.Size(382, 30);
-            this.loginStatusLabel.TabIndex = 120;
-            this.loginStatusLabel.Text = "계정을 선택한 후 Log-in을 누르세요.";
-            // 
             // materialRaisedButton18
             // 
             this.materialRaisedButton18.AutoSize = true;
@@ -464,7 +401,7 @@
             this.materialRaisedButton18.Primary = true;
             this.materialRaisedButton18.Size = new System.Drawing.Size(121, 36);
             this.materialRaisedButton18.TabIndex = 2;
-            this.materialRaisedButton18.Text = "New Client";
+            this.materialRaisedButton18.Text = "Clients";
             this.materialRaisedButton18.UseVisualStyleBackColor = true;
             this.materialRaisedButton18.Click += new System.EventHandler(this.materialRaisedButton18_Click);
             // 
@@ -1558,6 +1495,70 @@
             this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.Form1_FormClosing);
             this.Load += new System.EventHandler(this.Form1_Load);
             this.Shown += new System.EventHandler(this.Form1_Shown);
+            // Multi-client launch and management
+            this.clientsTabPage.BackColor = System.Drawing.Color.White;
+            this.clientsTabPage.Name = "clientsTabPage";
+            this.clientsTabPage.Text = "Clients";
+            this.clientsTabPage.Size = new System.Drawing.Size(968, 385);
+            this.clientsTabPage.Controls.AddRange(new System.Windows.Forms.Control[] {
+                this.clientCountLabel, this.launchAccountsList, this.clientLocaleComboBox,
+                this.launchClientsButton, this.reloadAccountsButton, this.cancelMultiLoginButton,
+                this.clientStatusList, this.runningClientsLabel, this.multiClientStatusLabel,
+                  });
+            this.clientCountLabel.Location = new System.Drawing.Point(20, 20);
+            this.clientCountLabel.Size = new System.Drawing.Size(130, 25);
+            this.clientCountLabel.Text = "선택한 계정: 0개";
+            this.clientLocaleComboBox.Name = "clientLocaleComboBox";
+            this.clientLocaleComboBox.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.clientLocaleComboBox.Items.AddRange(new object[] { "한국어", "English" });
+            this.clientLocaleComboBox.Location = new System.Drawing.Point(155, 18);
+            this.clientLocaleComboBox.Size = new System.Drawing.Size(165, 25);
+            this.clientLocaleComboBox.SelectedIndex = 0;
+            this.clientLocaleComboBox.SelectedIndexChanged += new System.EventHandler(this.clientLocaleComboBox_SelectedIndexChanged);
+            this.clientLocaleComboBox.TabIndex = 1;
+            this.launchAccountsList.Name = "launchAccountsList";
+            this.launchAccountsList.Location = new System.Drawing.Point(20, 55);
+            this.launchAccountsList.Size = new System.Drawing.Size(300, 209);
+            this.launchAccountsList.CheckOnClick = true;
+            this.launchAccountsList.ItemCheck += new System.Windows.Forms.ItemCheckEventHandler(this.launchAccountsList_ItemCheck);
+            this.launchAccountsList.TabIndex = 2;
+            this.launchAccountsList.AccessibleName = "로그인할 계정 목록";
+            this.launchClientsButton.Name = "launchClientsButton";
+            this.launchClientsButton.Location = new System.Drawing.Point(20, 275);
+            this.launchClientsButton.Size = new System.Drawing.Size(145, 32);
+            this.launchClientsButton.Text = "Riot Client 로그인";
+            this.launchClientsButton.TabIndex = 3;
+            this.launchClientsButton.Click += new System.EventHandler(this.launchClientsButton_Click);
+            this.cancelMultiLoginButton.Name = "cancelMultiLoginButton";
+            this.cancelMultiLoginButton.Location = new System.Drawing.Point(175, 275);
+            this.cancelMultiLoginButton.Size = new System.Drawing.Size(145, 32);
+            this.cancelMultiLoginButton.Text = "작업 취소";
+            this.cancelMultiLoginButton.Enabled = false;
+            this.cancelMultiLoginButton.TabIndex = 4;
+            this.cancelMultiLoginButton.Click += new System.EventHandler(this.cancelMultiLoginButton_Click);
+            this.reloadAccountsButton.Name = "reloadAccountsButton";
+            this.reloadAccountsButton.Location = new System.Drawing.Point(20, 312);
+            this.reloadAccountsButton.Size = new System.Drawing.Size(300, 28);
+            this.reloadAccountsButton.Text = "계정 목록 새로고침";
+            this.reloadAccountsButton.TabIndex = 5;
+            this.reloadAccountsButton.Click += new System.EventHandler(this.reloadAccountsButton_Click);
+            this.clientStatusList.Name = "clientStatusList";
+            this.clientStatusList.Location = new System.Drawing.Point(350, 55);
+            this.clientStatusList.Size = new System.Drawing.Size(590, 185);
+            this.clientStatusList.View = System.Windows.Forms.View.Details;
+            this.clientStatusList.FullRowSelect = true;
+            this.clientStatusList.HideSelection = false;
+            this.clientStatusList.MultiSelect = false;
+            this.clientStatusList.Columns.Add("계정", 150);
+            this.clientStatusList.Columns.Add("상태", 170);
+            this.clientStatusList.Columns.Add("PID", 60);
+            this.clientStatusList.Columns.Add("연결 오류", 120);
+            this.clientStatusList.TabIndex = 7;
+            this.runningClientsLabel.Location = new System.Drawing.Point(350, 247);
+            this.runningClientsLabel.Size = new System.Drawing.Size(590, 20);
+            this.multiClientStatusLabel.Name = "multiClientStatusLabel";
+            this.multiClientStatusLabel.Location = new System.Drawing.Point(20, 346);
+            this.multiClientStatusLabel.Size = new System.Drawing.Size(920, 36);
             this.materialTabControl1.ResumeLayout(false);
             this.tabPage1.ResumeLayout(false);
             this.tabPage1.PerformLayout();
@@ -1662,12 +1663,7 @@
         public MaterialSkin.Controls.MaterialCheckBox materialCheckBox3;
         public MaterialSkin.Controls.MaterialTabSelector materialTabSelector1;
         public MaterialSkin.Controls.MaterialCheckBox materialCheckBox10;
-        public MaterialSkin.Controls.MaterialRaisedButton materialRaisedButton38;
-        public MaterialSkin.Controls.MaterialRaisedButton materialRaisedButton30;
-        public System.Windows.Forms.ComboBox comboBox2;
-        private System.Windows.Forms.Button cancelLoginButton;
         private MaterialSkin.Controls.MaterialRaisedButton startLeagueButton;
-        private System.Windows.Forms.Label loginStatusLabel;
         public System.Windows.Forms.TabPage tabPage7;
         public MaterialSkin.Controls.MaterialRadioButton materialRadioButton9;
         public MaterialSkin.Controls.MaterialRadioButton materialRadioButton8;
@@ -1682,6 +1678,16 @@
         public System.Windows.Forms.ComboBox comboBox4;
         public MaterialSkin.Controls.MaterialCheckBox materialCheckBox14;
         public MaterialSkin.Controls.MaterialCheckBox materialCheckBox16;
+        private System.Windows.Forms.TabPage clientsTabPage;
+        private System.Windows.Forms.CheckedListBox launchAccountsList;
+        private System.Windows.Forms.ComboBox clientLocaleComboBox;
+        private System.Windows.Forms.ListView clientStatusList;
+        private System.Windows.Forms.Button launchClientsButton;
+        private System.Windows.Forms.Button reloadAccountsButton;
+        private System.Windows.Forms.Button cancelMultiLoginButton;
+        private System.Windows.Forms.Label multiClientStatusLabel;
+        private System.Windows.Forms.Label runningClientsLabel;
+        private System.Windows.Forms.Label clientCountLabel;
         private System.Windows.Forms.Timer timer1;
         private System.Windows.Forms.Timer timer2;
         public MaterialSkin.Controls.MaterialCheckBox materialCheckBox9;
@@ -1709,4 +1715,3 @@
         public MaterialSkin.Controls.MaterialRaisedButton materialRaisedButton13;
     }
 }
-

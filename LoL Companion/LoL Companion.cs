@@ -1,4 +1,4 @@
-﻿using MaterialSkin.Controls;
+using MaterialSkin.Controls;
 using Newtonsoft.Json.Linq;
 using System;
 using System.Net.Http;
@@ -18,10 +18,7 @@ namespace LoL_Companion
 {
     public partial class Form1 : MaterialForm
     {
-        // Instantiation
         SettingSaver SettingSaver = new SettingSaver();
-        LCU_Request LCU_Request = new LCU_Request();
-        Websocket Websocket = new Websocket();
 
         static Form1 _Object;
         public static Form1 Object
@@ -39,7 +36,7 @@ namespace LoL_Companion
         {
             Object = this;
 
-            ReloadLoginAccounts();
+            ReloadClientAccounts();
 
             //Ignore HTTPS certificate error
             ServicePointManager.ServerCertificateValidationCallback += (objSender, certificate, chain, sslPolicyErrors) => true;
@@ -117,13 +114,12 @@ namespace LoL_Companion
 
         private void Form1_FormClosing(object sender, FormClosingEventArgs e)
         {
-            accountLoginCancellation?.Cancel();
+            closing = true;
+            clientOperationCancellation?.Cancel();
+            clients.Dispose();
             gHook.unhook();
             SettingSaver.SaveSettings(); //Save checkbox & radiobox states
         }
-
-        //Declare Variables
-        private bool isConnectingToClient;
 
         string summonerName, summonerId, accountId, region, email;
 
@@ -280,34 +276,7 @@ namespace LoL_Companion
             isClientFocused = focusedApp == "League of Legends";
             isinGameFocused = focusedApp == "League of Legends (TM) Client";
 
-            if (isClientRunning)
-            {
-                if (!isConnectedtoWebsocket && isReplay && !isConnectingToClient)
-                {
-                    isConnectingToClient = true;
-                    try
-                    {
-                        await RetrieveAccountInfo();
-                        if (IsDisposed || Disposing || !isClientRunning || !isReplay)
-                            return;
-
-                        Websocket.ConnectToLCU();
-                        isConnectedtoWebsocket = Websocket.LCU != null && Websocket.LCU.IsAlive;
-                    }
-                    catch (Exception ex)
-                    {
-                        isConnectedtoWebsocket = false;
-                        // Avoid logging credentials or request headers.
-                        Trace.WriteLine("LCU connection failed: " + ex.GetType().Name);
-                    }
-                    finally
-                    {
-                        isConnectingToClient = false;
-                    }
-                }
-            }
-            else
-                isConnectedtoWebsocket = false;
+            await RefreshClientsAsync();
 
             if (IsDisposed || Disposing)
                 return;
@@ -318,7 +287,7 @@ namespace LoL_Companion
                 ResetInGame();
         }
 
-        private async Task RetrieveAccountInfo()
+        private async Task RetrieveAccountInfo(LCU_Request LCU_Request)
         {
             // Keep the saved installation if process inspection is unavailable.
             leagueLocation = LeagueInstallation.Resolve(leagueLocation);
@@ -412,13 +381,6 @@ namespace LoL_Companion
                     isReplay = true;
                 }
             }
-            //Disconnect websocket while in-game
-            if (isConnectedtoWebsocket && !isReplay)
-            {
-                Websocket.LCU.Close();
-                isConnectedtoWebsocket = false;
-            }
-
             if (!isReplay)
             {
                 if (materialCheckBox3.Checked && isinGameFocused && ingameTime > 1 && !isChatMuted)
@@ -485,11 +447,20 @@ namespace LoL_Companion
         {
             if (materialCheckBox9.Checked && isinGameRunning) //롤 켜지면 강제종료 후 타이머 카운팅 시작
             {
-                foreach (var process in Process.GetProcessesByName("League of Legends"))
+                try
                 {
-                    process.Kill();
+                    // Keep the owning LCU even after killing the game changes automatic routing.
+                    if (draggedClientRequests == null)
+                    {
+                        await clients.RefreshAsync(false);
+                        draggedClientRequests = clients.Clients.Where(client => new[] { "InProgress", "GameStart", "Reconnect" }.Contains(client.Phase)).Select(client => client.Request).ToArray();
+                        if (draggedClientRequests.Length == 0) throw new InvalidOperationException("게임에 연결된 클라이언트를 확인하지 못했습니다.");
+                    }
+                    foreach (var process in Process.GetProcessesByName("League of Legends"))
+                        using (process) process.Kill();
+                    isTimerOnforDragging = true;
                 }
-                isTimerOnforDragging = true;
+                catch (Exception ex) { multiClientStatusLabel.Text = "재접속 준비 실패: " + ex.GetType().Name; }
             }
 
             if (isTimerOnforDragging)
@@ -501,7 +472,10 @@ namespace LoL_Companion
 
             if (draggedTime == 230)
             {
-                await LCU_Request.POST("/lol-gameflow/v1/reconnect", "0");
+                foreach (var request in draggedClientRequests ?? new LCU_Request[0])
+                    try { await request.POST("/lol-gameflow/v1/reconnect", "0"); }
+                    catch (Exception ex) { multiClientStatusLabel.Text = "재접속 실패: " + ex.Message; }
+                draggedClientRequests = null;
 
                 materialCheckBox9.Checked = false;
                 draggedTime = 0;
@@ -540,16 +514,8 @@ namespace LoL_Companion
 
         private async void materialRaisedButton8_Click(object sender, EventArgs e)
         {
-            try
-            {
-                string payload = $"{{\"key\":\"backgroundSkinId\", \"value\":\"{materialSingleLineTextField3.Text}\"}}";
-                await LCU_Request.POST("/lol-summoner/v1/current-summoner/summoner-profile", payload);
-
-            }
-            catch
-            {
-                MessageBox.Show("Error while requesting POST method.");
-            }
+            string payload = new JObject { ["key"] = "backgroundSkinId", ["value"] = materialSingleLineTextField3.Text }.ToString();
+            await RunClientActionAsync(request => request.POST("/lol-summoner/v1/current-summoner/summoner-profile", payload));
         }
 
         private void materialRaisedButton11_Click(object sender, EventArgs e)
@@ -572,54 +538,31 @@ namespace LoL_Companion
 
         private async void materialRaisedButton7_Click(object sender, EventArgs e)
         {
-            if (System.IO.File.Exists(@"items.js"))
+            if (!File.Exists("items.js")) return;
+            try
             {
-                using (var fileReader = new StreamReader(@"items.js"))
-                {
-                    string payload = fileReader.ReadLine();
-                    await LCU_Request.PUT($"/lol-item-sets/v1/item-sets/{summonerId}/sets", payload);
-                }
+                JToken saved = JToken.Parse(File.ReadAllText("items.js"));
+                await RunClientActionAsync(request => ItemSetTransferService.ImportAsync(request, saved));
             }
+            catch (Exception ex) { MessageBox.Show(this, ex.Message, "Load Item Sets"); }
         }
 
         private void materialRaisedButton18_Click(object sender, EventArgs e)
         {
-            Process.Start(Path.Combine(leagueLocation, "LeagueClient.exe"), "--allow-multiple-clients --locale=\"en_AU\"");
+            materialTabControl1.SelectedTab = clientsTabPage;
         }
 
         private async void materialRaisedButton24_Click(object sender, EventArgs e)
         {
-            try
-            {
-                await LCU_Request.POST("/riotclient/kill-and-restart-ux", "0");
-            }
-            catch
-            {
-                MessageBox.Show("Error while requesting POST method.");
-            }
+            await RunClientActionAsync(request => request.POST("/riotclient/kill-and-restart-ux", "0"));
         }
 
         private async void materialRaisedButton22_Click(object sender, EventArgs e)
         {
-            if (!materialRaisedButton22.Enabled)
-                return;
-
+            if (!materialRaisedButton22.Enabled) return;
             materialRaisedButton22.Enabled = false;
-            try
-            {
-                await new PracticeToolLauncher(LCU_Request).StartAsync();
-            }
-            catch (Exception ex)
-            {
-                if (!IsDisposed && !Disposing)
-                    MessageBox.Show(this, "연습 모드를 시작하지 못했습니다.\n" + ex.Message,
-                        "Practice Tool", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            finally
-            {
-                if (!IsDisposed && !Disposing)
-                    materialRaisedButton22.Enabled = true;
-            }
+            try { await RunClientActionAsync(request => new PracticeToolLauncher(request).StartAsync(), "None", "Lobby"); }
+            finally { if (!IsDisposed && !Disposing) materialRaisedButton22.Enabled = true; }
         }
 
         private void TerminateLoL()
@@ -649,18 +592,22 @@ namespace LoL_Companion
         public static string savePath;
         private void materialCheckBox13_CheckedChanged(object sender, EventArgs e)
         {
-            if (materialCheckBox13.Checked)
+            try
             {
-                Directory.CreateDirectory("Logs");
-
-                string datetime = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss");
-                savePath = $"Logs/websocket_{datetime}.json";
-
                 if (materialCheckBox13.Checked)
-                    Websocket.Debug();
+                {
+                    Directory.CreateDirectory("Logs");
+
+                    string datetime = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss");
+                    savePath = $"Logs/websocket_{datetime}.json";
+
+                    if (materialCheckBox13.Checked)
+                        foreach (var client in clients.Clients) client.Events.Debug();
+                }
+                else
+                    foreach (var client in clients.Clients) client.Events.LCU_Debug?.CloseAsync();
             }
-            else
-                Websocket.LCU_Debug.Close();
+            catch (Exception ex) { multiClientStatusLabel.Text = ex.Message; }
         }
 
         private void materialRaisedButton42_Click(object sender, EventArgs e)
@@ -777,59 +724,21 @@ namespace LoL_Companion
 
         private async void materialRaisedButton6_Click(object sender, EventArgs e)
         {
-            // 큐 생성
-            string payload1 = "{ \"queueId\": 400 }";
-            await LCU_Request.POST("/lol-lobby/v2/lobby", payload1);
-
-            // 포지션 설정
-            string payload2 = "{ \"firstPreference\":\"JUNGLE\", \"secondPreference\":\"MIDDLE\" }";
-            await LCU_Request.PUT("/lol-lobby/v2/lobby/members/localMember/position-preferences", payload2);
-
-            // 큐 돌리기 (matchmaking 시작)
-            string payload3 = "0";
-            await LCU_Request.POST("/lol-lobby/v2/lobby/matchmaking/search", payload3);
+            await JoinQueueAsync(400);
         }
 
         private async void materialRaisedButton20_Click(object sender, EventArgs e)
         {
-            // 큐 생성
-            string payload1 = "{ \"queueId\": 420 }";
-            await LCU_Request.POST("/lol-lobby/v2/lobby", payload1);
-
-            // 포지션 설정
-            string payload2 = "{ \"firstPreference\":\"JUNGLE\", \"secondPreference\":\"MIDDLE\" }";
-            await LCU_Request.PUT("/lol-lobby/v2/lobby/members/localMember/position-preferences", payload2);
-
-            // 큐 돌리기 (matchmaking 시작)
-            string payload3 = "0";
-            await LCU_Request.POST("/lol-lobby/v2/lobby/matchmaking/search", payload3);
+            await JoinQueueAsync(420);
         }
-
         private async void materialRaisedButton28_Click(object sender, EventArgs e)
         {
-            try
-            {
-                // 1) 현재 소환사 정보 조회
-                JObject currentSummoner = await LCU_Request.GET("/lol-summoner/v1/current-summoner");
-                string summonerId = currentSummoner["summonerId"].ToString();
-
-                // 2) 해당 소환사의 아이템 세트 조회
-                JObject itemSets = await LCU_Request.GET($"/lol-item-sets/v1/item-sets/{summonerId}/sets");
-                string itemSetsJson = itemSets.ToString();
-
-                // 3) 클립보드에 복사
-                Clipboard.SetText(itemSetsJson);
-
-                // 4) 파일에 저장
-                using (var writer = new StreamWriter(@"items.js"))
-                {
-                    writer.WriteLine(itemSetsJson);
-                }
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show("GET 요청 중 오류가 발생했습니다: " + ex.Message);
-            }
+            var entries = new JArray();
+            await RunClientActionAsync(async request => entries.Add(await ItemSetTransferService.ExportAsync(request)));
+            if (entries.Count == 0) return;
+            string json = ItemSetTransferService.CreateExport(entries).ToString();
+            File.WriteAllText("items.js", json);
+            Clipboard.SetText(json);
         }
 
         private void materialCheckBox9_CheckedChanged(object sender, EventArgs e)
@@ -924,8 +833,7 @@ namespace LoL_Companion
             materialRaisedButton13.Enabled = false;
             try
             {
-                using (var server = new LeagueEdgeClient(LCU_Request))
-                    await new QuickDodgeService(LCU_Request, server).DodgeAsync();
+                await DodgeClientsAsync();
             }
             catch (Exception ex)
             {
@@ -936,7 +844,9 @@ namespace LoL_Companion
             finally
             {
                 if (!IsDisposed && !Disposing)
+                {
                     materialRaisedButton13.Enabled = true;
+                }
             }
         }
 
@@ -987,7 +897,7 @@ namespace LoL_Companion
                     if (isClientRunning)
                     {
                         string payload = $"{{ \"firstPreference\":\"{firstPreference}\", \"secondPreference\":\"FILL\" }}";
-                        await LCU_Request.PUT("/lol-lobby/v2/lobby/members/localMember/position-preferences", payload);
+                        await RunClientActionAsync(request => request.PUT("/lol-lobby/v2/lobby/members/localMember/position-preferences", payload), "Lobby");
                     }
                 }
                 catch { }

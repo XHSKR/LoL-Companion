@@ -1,158 +1,47 @@
-﻿using Newtonsoft.Json.Linq;
+using Newtonsoft.Json.Linq;
 using System;
-using System.Diagnostics;
-using System.Linq;
-using System.Management;
 using System.Net.Http;
 using System.Net.Http.Headers;
-using System.Security.Authentication;
 using System.Text;
-using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace LoL_Companion
 {
     class LCU_Request : IDisposable
     {
-        private readonly HttpClient _httpClient;
-
-        public LCU_Request()
+        private readonly HttpClient client;
+        public LeagueClientConnection Connection { get; }
+        public LCU_Request(LeagueClientConnection connection, HttpMessageHandler handler = null)
         {
-            // 자체 서명된 인증서 허용 (로컬 호출 전용)
-            var handler = new HttpClientHandler
+            Connection = connection ?? throw new ArgumentNullException(nameof(connection));
+            client = new HttpClient(handler ?? LocalApiHttpHandler.Create())
+                { BaseAddress = new Uri("https://127.0.0.1:" + connection.Api.Port), Timeout = TimeSpan.FromSeconds(3) };
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic",
+                Convert.ToBase64String(Encoding.UTF8.GetBytes("riot:" + connection.Api.Token)));
+        }
+        public async Task<JObject> GET(string path) => (JObject)await GET_Value(path).ConfigureAwait(false);
+        public async Task<JArray> GET_Array(string path) => (JArray)await GET_Value(path).ConfigureAwait(false);
+        public Task<JToken> GET_Value(string path) => SendAsync("GET", path, null);
+        public async Task POST(string path, string body) { await SendAsync("POST", path, body).ConfigureAwait(false); }
+        public Task<JToken> POST_Value(string path, string body) => SendAsync("POST", path, body);
+        public async Task PUT(string path, string body) { await SendAsync("PUT", path, body).ConfigureAwait(false); }
+        public async Task PATCH(string path, string body) { await SendAsync("PATCH", path, body).ConfigureAwait(false); }
+        private async Task<JToken> SendAsync(string method, string path, string body)
+        {
+            if (string.IsNullOrEmpty(path) || !path.StartsWith("/", StringComparison.Ordinal) || path.StartsWith("//", StringComparison.Ordinal))
+                throw new ArgumentException("로컬 API 경로가 올바르지 않습니다.", nameof(path));
+            using (var request = new HttpRequestMessage(new HttpMethod(method), path))
             {
-                SslProtocols = SslProtocols.Tls12,
-                // .NET Framework 4.7.2에서는 self-signed cert 허용 설정
-                ServerCertificateCustomValidationCallback = (sender, cert, chain, errors) => true
-            };
-
-            _httpClient = new HttpClient(handler)
-            {
-                Timeout = TimeSpan.FromSeconds(30) // 필요에 따라 조정
-            };
-        }
-
-        public static string riotPass;
-        public static string riotPort;
-        public static string completeURL;
-
-        private void GetRiotCredentials(string plugIn)
-        {
-            var process = Process.GetProcessesByName("LeagueClientUx").FirstOrDefault();
-            if (process == null)
-                throw new InvalidOperationException("LeagueClientUx 프로세스를 찾을 수 없습니다.");
-
-            string commandLine;
-            using (var searcher = new ManagementObjectSearcher(
-                $"SELECT CommandLine FROM Win32_Process WHERE ProcessId = {process.Id}"))
-            using (var results = searcher.Get())
-            {
-                commandLine = results.Cast<ManagementBaseObject>()
-                                     .SingleOrDefault()?["CommandLine"]?.ToString()
-                              ?? throw new InvalidOperationException("CommandLine 정보를 읽어올 수 없습니다.");
-            }
-
-            riotPass = Regex.Match(commandLine,
-                                   @"--remoting-auth-token=([^""]+)")
-                            .Groups[1].Value;
-
-            riotPort = Regex.Match(commandLine,
-                                   @"--app-port=(\d+)")
-                            .Groups[1].Value;
-
-            completeURL = $"https://127.0.0.1:{riotPort}{plugIn}";
-        }
-
-        public async Task<JObject> GET(string plugIn)
-        {
-            return (JObject)await GET_Value(plugIn).ConfigureAwait(false);
-        }
-
-        public async Task<JToken> GET_Value(string plugIn)
-        {
-            GetRiotCredentials(plugIn);
-
-            using (var request = new HttpRequestMessage(HttpMethod.Get, completeURL))
-            {
-                AddBasicAuthHeader(request);
-                using (var response = await _httpClient.SendAsync(request).ConfigureAwait(false))
-                {
-                    response.EnsureSuccessStatusCode();
-                    string jsonString = await response.Content
-                                            .ReadAsStringAsync()
-                                            .ConfigureAwait(false);
-                    return JToken.Parse(jsonString);
-                }
-            }
-        }
-
-        public async Task<JArray> GET_Array(string plugIn)
-        {
-            return (JArray)await GET_Value(plugIn).ConfigureAwait(false);
-        }
-
-        public async Task POST(string plugIn, string jsonBody)
-        {
-            await SendWithBodyAsync("POST", plugIn, jsonBody).ConfigureAwait(false);
-        }
-
-        public Task<JToken> POST_Value(string plugIn, string jsonBody)
-        {
-            return SendWithBodyAsync("POST", plugIn, jsonBody);
-        }
-
-        public async Task PUT(string plugIn, string jsonBody)
-        {
-            await SendWithBodyAsync("PUT", plugIn, jsonBody).ConfigureAwait(false);
-        }
-
-        public async Task PATCH(string plugIn, string jsonBody)
-        {
-            await SendWithBodyAsync("PATCH", plugIn, jsonBody).ConfigureAwait(false);
-        }
-
-        private async Task<JToken> SendWithBodyAsync(string method, string plugIn, string bodyJson)
-        {
-            GetRiotCredentials(plugIn);
-
-            using (var request = new HttpRequestMessage(new HttpMethod(method), completeURL))
-            {
-                // 파라미터로 받은 bodyJson 사용
-                request.Content = new StringContent(bodyJson, Encoding.UTF8, "application/json");
-                AddBasicAuthHeader(request);
-
-                using (var response = await _httpClient.SendAsync(request).ConfigureAwait(false))
+                if (body != null) request.Content = new StringContent(body, Encoding.UTF8, "application/json");
+                using (var response = await client.SendAsync(request).ConfigureAwait(false))
                 {
                     if (!response.IsSuccessStatusCode)
-                    {
-                        string responseBody = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-                        string reason = response.ReasonPhrase;
-                        try
-                        {
-                            JObject error = JObject.Parse(responseBody);
-                            reason = (string)error["message"] ?? (string)error["errorCode"] ?? reason;
-                        }
-                        catch (Newtonsoft.Json.JsonException) { }
-                        throw new HttpRequestException(string.Format(
-                            "{0} {1}: HTTP {2} - {3}", method, plugIn, (int)response.StatusCode, reason));
-                    }
-                    string json = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                        throw new HttpRequestException(method + " " + path + ": HTTP " + (int)response.StatusCode);
+                    string json = response.Content == null ? string.Empty : await response.Content.ReadAsStringAsync().ConfigureAwait(false);
                     return string.IsNullOrWhiteSpace(json) ? null : JToken.Parse(json);
                 }
             }
         }
-
-        private void AddBasicAuthHeader(HttpRequestMessage request)
-        {
-            var token = Convert.ToBase64String(
-                Encoding.ASCII.GetBytes($"riot:{riotPass}"));
-            request.Headers.Authorization =
-                new AuthenticationHeaderValue("Basic", token);
-        }
-
-        public void Dispose()
-        {
-            _httpClient.Dispose();
-        }
+        public void Dispose() { client.Dispose(); }
     }
 }

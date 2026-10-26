@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
@@ -96,6 +96,10 @@
     <Reference Include="System.Drawing" />
     <Reference Include="System.Web" />
     <Reference Include="System.Windows.Forms" />
+    <Reference Include="Interop.UIAutomationClient">
+      <HintPath>..\packages\Interop.UIAutomationClient.10.19041.0\lib\net45\Interop.UIAutomationClient.dll</HintPath>
+      <EmbedInteropTypes>False</EmbedInteropTypes>
+    </Reference>
     <Reference Include="System.Xml" />
     <Reference Include="websocket-sharp, Version=1.0.1.0, Culture=neutral, PublicKeyToken=5660b08a1845a91e, processorArchitecture=MSIL">
       <HintPath>..\packages\WebSocketSharp-netstandard.1.0.1\lib\net45\websocket-sharp.dll</HintPath>
@@ -105,12 +109,27 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="LeagueClientConnection.cs" />
+    <Compile Include="MultiClientManager.cs" />
+    <Compile Include="ItemSetTransferService.cs" />
+    <Compile Include="MultiClientLaunchService.cs" />
+    <Compile Include="RiotClientDiscovery.cs" />
+    <Compile Include="ClientSelectionSettings.cs" />
+    <Compile Include="LoL Companion.ClientList.cs">
+      <DependentUpon>LoL Companion.cs</DependentUpon>
+    </Compile>
+    <Compile Include="LoL Companion.MultiClient.cs">
+      <DependentUpon>LoL Companion.cs</DependentUpon>
+    </Compile>
     <Compile Include="LCU_Request.cs" />
+    <Compile Include="LocalApiHttpHandler.cs" />
     <Compile Include="RiotClientApi.cs" />
     <Compile Include="RiotClientLauncher.cs" />
     <Compile Include="RiotLoginUi.cs" />
-    <Compile Include="AccountLoginService.cs" />
-    <Compile Include="LoL Companion.AccountLogin.cs">
+    <Compile Include="RiotLoginWindow.cs" />
+    <Compile Include="RiotLoginClipboard.cs" />
+    <Compile Include="RiotLoginFields.cs" />
+    <Compile Include="LoL Companion.RiotClient.cs">
       <DependentUpon>LoL Companion.cs</DependentUpon>
     </Compile>
     <Compile Include="LeagueInstallation.cs" />

@@ -39,6 +39,19 @@ namespace LoL_Companion
             }
         }
 
+        public ClientSelectionSettings LoadClientSelection()
+        {
+            try { return ClientSelectionSettings.Read(File.Exists(SettingsFile) ? File.ReadAllLines(SettingsFile) : new string[0]); }
+            catch (IOException) { return new ClientSelectionSettings(); }
+            catch (UnauthorizedAccessException) { return new ClientSelectionSettings(); }
+        }
+
+        public void SaveClientSelection(ClientSelectionSettings selection)
+        {
+            if (!File.Exists(SettingsFile)) SaveSettings();
+            selection.Save(SettingsFile);
+        }
+
         private void WriteDefaultCredentials()
         {
             File.WriteAllLines(CredentialsFile, new[]
@@ -60,7 +73,6 @@ namespace LoL_Companion
                     WriteSection(writer, "League Client Settings", () =>
                     {
                         writer.WriteLine($"\"{Form1.Object.materialCheckBox8.Text}\" = {Form1.Object.materialCheckBox8.Checked}");
-                        writer.WriteLine($"\"Log-in ID\" = {Form1.Object.comboBox2.Text}");
                     });
 
                     WriteSection(writer, "In-Game Settings", () =>
@@ -100,6 +112,7 @@ namespace LoL_Companion
                         writer.WriteLine($"\"{Form1.Object.materialCheckBox1.Text}\" = {Form1.Object.materialCheckBox1.Checked}");
                         writer.WriteLine($"\"{Form1.Object.materialCheckBox2.Text}\" = {Form1.Object.materialCheckBox2.Checked}");
                     });
+                    Form1.Object.CaptureClientSelection().Write(writer);
                 }
             }
             catch (IOException ex)
@@ -133,21 +146,15 @@ namespace LoL_Companion
                 }
 
                 var settingLines = File.ReadAllLines(SettingsFile);
-                // The removed account field shifted every later setting in old files.
-                // Read it by key and exclude it from the legacy positional settings.
-                string loginLine = settingLines.FirstOrDefault(line => line.TrimStart().StartsWith("\"Log-in ID\" =", StringComparison.Ordinal));
-                if (loginLine != null)
-                {
-                    string loginId = loginLine.Substring(loginLine.IndexOf('=') + 1).Trim();
-                    if (Form1.Object.comboBox2.Items.Contains(loginId)) Form1.Object.comboBox2.SelectedItem = loginId;
-                }
-                var states = settingLines
+                // Ignore the removed login selector and the separately keyed Clients section.
+                var states = ClientSelectionSettings.WithoutClientSection(settingLines)
                                  .Where(line => !line.TrimStart().StartsWith("\"Log-in ID\" =", StringComparison.Ordinal))
                                  .Where(line => !string.IsNullOrWhiteSpace(line) && line.Contains('='))
                                  .Select(line => line.Substring(line.IndexOf('=') + 1).Trim())
                                  .ToList();
 
                 int i = 0;
+                if (states.Count < 21) return;
                 Form1.leagueLocation = states[i++];
                 Form1.Object.materialCheckBox8.Checked = bool.Parse(states[i++]);
                 Form1.Object.materialCheckBox3.Checked = bool.Parse(states[i++]);
