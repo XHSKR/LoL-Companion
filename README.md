@@ -27,10 +27,6 @@ Existing lifecycle sessions are updated instead of deleted and recreated. A crea
 (HTTP 409) is recovered by reading the session again and updating it; credential requests are
 never automatically retried. Sign-out also respects the Riot Client's permission for other games.
 
-Regression tests are in `tests/Run-AccountLoginTests.ps1`. Pass a C# compiler path, a .NET Framework
-4.7.2 reference assembly directory, and the built app directory. `-LiveReadOnly` additionally checks
-the running Riot Client and its API schema without logging out or submitting credentials.
-
 ## Dependencies
 HtmlAgilityPack.1.11.43
 
