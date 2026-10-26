@@ -49,6 +49,7 @@ namespace LoL_Companion
             RiotClientInstance target = null;
             string key = clientStatusList.SelectedItems.Count == 1 ? clientStatusList.SelectedItems[0].Tag as string : null;
             bool selected = key != null && riotClientRows.TryGetValue(key, out target);
+            closeRiotClientButton.Enabled = clientOperationCancellation == null && selected;
             switchAccountButton.Enabled = clientOperationCancellation == null && selected && signedInRiotAccounts.ContainsKey(key) &&
                 !clients.Clients.Any(client => client.Connection.RiotPort == target.Connection.Port) &&
                 clients.Clients.Length == 1 && clients.Clients[0].Phase == "ChampSelect";

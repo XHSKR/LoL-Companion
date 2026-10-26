@@ -46,6 +46,13 @@ so reordering `credentials.conf` does not change which accounts are checked. Exi
 and legacy files with the removed Log-in ID entry remain readable. Periodic status updates
 modify existing table rows and preserve their selection, focus and scroll position.
 
+Select a Riot row and press **선택한 Riot Client 종료** to close that instance, including
+instances still at the login screen. The command uses the selected instance's authenticated
+local process-control API and confirms that its process exits and its Riot row disappears.
+If the background service remains after the quit request, only its captured PID is stopped,
+after checking the process name and creation time. Other Riot instances are left running.
+
+
 Select a signed-in Riot account whose League client is closed, then press **닷지 후 선택 계정 실행**.
 The button is enabled when exactly one League client is in champion select. The workflow
 verifies the selected account, requests the existing server dodge endpoint, closes the old

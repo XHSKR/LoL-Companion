@@ -115,6 +115,10 @@
     <Compile Include="MultiClientLaunchService.cs" />
     <Compile Include="RiotClientDiscovery.cs" />
     <Compile Include="ClientSelectionSettings.cs" />
+    <Compile Include="RiotClientCloseService.cs" />
+    <Compile Include="LoL Companion.ClientClose.cs">
+      <DependentUpon>LoL Companion.cs</DependentUpon>
+    </Compile>
     <Compile Include="LeagueAccountSwitchService.cs" />
     <Compile Include="LoL Companion.AccountSwitch.cs">
       <DependentUpon>LoL Companion.cs</DependentUpon>

@@ -36,6 +36,7 @@ namespace LoL_Companion
             this.clientStatusList = new System.Windows.Forms.ListView();
             this.launchClientsButton = new System.Windows.Forms.Button();
             this.switchAccountButton = new System.Windows.Forms.Button();
+            this.closeRiotClientButton = new System.Windows.Forms.Button();
             this.reloadAccountsButton = new System.Windows.Forms.Button();
             this.cancelMultiLoginButton = new System.Windows.Forms.Button();
             this.multiClientStatusLabel = new System.Windows.Forms.Label();
@@ -1505,7 +1506,7 @@ namespace LoL_Companion
                 this.clientCountLabel, this.launchAccountsList, this.clientLocaleComboBox,
                 this.launchClientsButton, this.reloadAccountsButton, this.cancelMultiLoginButton,
                 this.clientStatusList, this.runningClientsLabel, this.multiClientStatusLabel,
-                this.switchAccountButton,  });
+                this.switchAccountButton, this.closeRiotClientButton });
             this.clientCountLabel.Location = new System.Drawing.Point(20, 20);
             this.clientCountLabel.Size = new System.Drawing.Size(130, 25);
             this.clientCountLabel.Text = "선택한 계정: 0개";
@@ -1565,6 +1566,13 @@ namespace LoL_Companion
             this.switchAccountButton.Enabled = false;
             this.switchAccountButton.TabIndex = 8;
             this.switchAccountButton.Click += new System.EventHandler(this.switchAccountButton_Click);
+            this.closeRiotClientButton.Name = "closeRiotClientButton";
+            this.closeRiotClientButton.Location = new System.Drawing.Point(645, 275);
+            this.closeRiotClientButton.Size = new System.Drawing.Size(295, 32);
+            this.closeRiotClientButton.Text = "선택한 Riot Client 종료";
+            this.closeRiotClientButton.Enabled = false;
+            this.closeRiotClientButton.TabIndex = 9;
+            this.closeRiotClientButton.Click += new System.EventHandler(this.closeRiotClientButton_Click);
             this.multiClientStatusLabel.Name = "multiClientStatusLabel";
             this.multiClientStatusLabel.Location = new System.Drawing.Point(20, 346);
             this.multiClientStatusLabel.Size = new System.Drawing.Size(920, 36);
@@ -1693,6 +1701,7 @@ namespace LoL_Companion
         private System.Windows.Forms.ListView clientStatusList;
         private System.Windows.Forms.Button launchClientsButton;
         private System.Windows.Forms.Button switchAccountButton;
+        private System.Windows.Forms.Button closeRiotClientButton;
         private System.Windows.Forms.Button reloadAccountsButton;
         private System.Windows.Forms.Button cancelMultiLoginButton;
         private System.Windows.Forms.Label multiClientStatusLabel;
